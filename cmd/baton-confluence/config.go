@@ -33,7 +33,7 @@ func validateConfig(ctx context.Context, cfg *config) error {
 
 // cmdFlags sets the cmdFlags required for the connector.
 func cmdFlags(cmd *cobra.Command) {
-	cmd.PersistentFlags().String("domain-url", "", "The domain url for your Confluence account. ($BATON_DOMAIN)")
+	cmd.PersistentFlags().String("domain-url", "", "The domain url for your Confluence account. ($BATON_DOMAIN_URL)")
 	cmd.PersistentFlags().String("api-key", "", "The api key for your Confluence account. ($BATON_API_KEY)")
 	cmd.PersistentFlags().String("username", "", "The username for your Confluence account. ($BATON_USERNAME)")
 }
