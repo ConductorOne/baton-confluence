@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/ConductorOne/baton-confluence/pkg/connector"
 	"github.com/conductorone/baton-sdk/pkg/cli"
+	"github.com/conductorone/baton-sdk/pkg/connectorbuilder"
 	"github.com/conductorone/baton-sdk/pkg/sdk"
 	"github.com/conductorone/baton-sdk/pkg/types"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
@@ -26,6 +28,8 @@ func main() {
 
 	cmd.Version = version
 
+	cmdFlags(cmd)
+
 	err = cmd.Execute()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
@@ -35,20 +39,27 @@ func main() {
 
 func getConnector(ctx context.Context, cfg *config) (types.ConnectorServer, error) {
 	l := ctxzap.Extract(ctx)
-
-	c, err := sdk.NewEmptyConnector()
+	config := connector.Config{
+		Domain:   cfg.DomainUrl,
+		ApiKey:   cfg.ApiKey,
+		UserName: cfg.Username,
+	}
+	cb, err := connector.New(ctx, config)
 	if err != nil {
 		l.Error("error creating connector", zap.Error(err))
 		return nil, err
 	}
-
-	return c, nil
+	connector, err := connectorbuilder.NewConnector(ctx, cb)
+	if err != nil {
+		l.Error("error creating connector", zap.Error(err))
+		return nil, err
+	}
+	return connector, nil
 }
 
 // run is where the process of syncing with the connector is implemented.
 func run(ctx context.Context, cfg *config) error {
 	l := ctxzap.Extract(ctx)
-
 	c, err := getConnector(ctx, cfg)
 	if err != nil {
 		l.Error("error creating connector", zap.Error(err))

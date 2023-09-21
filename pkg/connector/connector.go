@@ -3,38 +3,95 @@ package connector
 import (
 	"context"
 	"fmt"
+	"io"
 
+	"github.com/ConductorOne/baton-confluence/pkg/connector/client"
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
+	"github.com/conductorone/baton-sdk/pkg/annotations"
+	"github.com/conductorone/baton-sdk/pkg/connectorbuilder"
 )
 
-// TODO: implement your connector here
-type connectorImpl struct {
+const (
+	accountTypeAtlassian = "atlassian" // user account type
+	entitlementGroupFmt  = "member:%s"
+)
+
+var (
+	resourceTypeGroup = &v2.ResourceType{
+		Id:          "group",
+		DisplayName: "Group",
+		Traits:      []v2.ResourceType_Trait{v2.ResourceType_TRAIT_GROUP},
+		Annotations: v1AnnotationsForResourceType("group"),
+	}
+	resourceTypeUser = &v2.ResourceType{
+		Id:          "user",
+		DisplayName: "User",
+		Traits: []v2.ResourceType_Trait{
+			v2.ResourceType_TRAIT_USER,
+		},
+		Annotations: v1AnnotationsForResourceType("user"),
+	}
+)
+
+type Config struct {
+	UserName string
+	ApiKey   string
+	Domain   string
+}
+type Confluence struct {
+	client   *client.ConfluenceClient
+	domain   string
+	apiKey   string
+	userName string
 }
 
-func (c *connectorImpl) ListResourceTypes(ctx context.Context, req *v2.ResourceTypesServiceListResourceTypesRequest) (*v2.ResourceTypesServiceListResourceTypesResponse, error) {
-	return nil, fmt.Errorf("not implemented")
+func New(ctx context.Context, config Config) (*Confluence, error) {
+	client, err := client.NewConfluenceClient(ctx, config.UserName, config.ApiKey, config.Domain)
+	if err != nil {
+		return nil, err
+	}
+	rv := &Confluence{
+		domain:   config.Domain,
+		apiKey:   config.ApiKey,
+		userName: config.UserName,
+		client:   client,
+	}
+	return rv, nil
 }
 
-func (c *connectorImpl) ListResources(ctx context.Context, req *v2.ResourcesServiceListResourcesRequest) (*v2.ResourcesServiceListResourcesResponse, error) {
-	return nil, fmt.Errorf("not implemented")
+func (c *Confluence) Metadata(ctx context.Context) (*v2.ConnectorMetadata, error) {
+	_, err := c.Validate(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var annos annotations.Annotations
+	annos.Update(&v2.ExternalLink{
+		Url: c.domain,
+	})
+
+	return &v2.ConnectorMetadata{
+		DisplayName: "Confluence",
+		Annotations: annos,
+	}, nil
 }
 
-func (c *connectorImpl) ListEntitlements(ctx context.Context, req *v2.EntitlementsServiceListEntitlementsRequest) (*v2.EntitlementsServiceListEntitlementsResponse, error) {
-	return nil, fmt.Errorf("not implemented")
+func (c *Confluence) Validate(ctx context.Context) (annotations.Annotations, error) {
+	err := c.client.Verify(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("confluence-connector: failed to validate API keys: %w", err)
+	}
+
+	return nil, nil
 }
 
-func (c *connectorImpl) ListGrants(ctx context.Context, req *v2.GrantsServiceListGrantsRequest) (*v2.GrantsServiceListGrantsResponse, error) {
-	return nil, fmt.Errorf("not implemented")
+func (c *Confluence) Asset(ctx context.Context, asset *v2.AssetRef) (string, io.ReadCloser, error) {
+	return "", nil, nil
 }
 
-func (c *connectorImpl) GetMetadata(ctx context.Context, req *v2.ConnectorServiceGetMetadataRequest) (*v2.ConnectorServiceGetMetadataResponse, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-
-func (c *connectorImpl) Validate(ctx context.Context, req *v2.ConnectorServiceValidateRequest) (*v2.ConnectorServiceValidateResponse, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-
-func (c *connectorImpl) GetAsset(req *v2.AssetServiceGetAssetRequest, server v2.AssetService_GetAssetServer) error {
-	return fmt.Errorf("not implemented")
+func (c *Confluence) ResourceSyncers(ctx context.Context) []connectorbuilder.ResourceSyncer {
+	return []connectorbuilder.ResourceSyncer{
+		groupBuilder(c.client),
+		userBuilder(c.client),
+	}
 }
