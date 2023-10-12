@@ -13,7 +13,6 @@ import (
 
 const (
 	accountTypeAtlassian = "atlassian" // user account type
-	entitlementGroupFmt  = "member:%s"
 )
 
 var (

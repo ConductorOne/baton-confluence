@@ -269,7 +269,7 @@ func (c *ConfluenceClient) genURL(pageToken string, pageSize int, path string) (
 
 	q := u.Query()
 	q.Set("start", pageToken)
-	q.Set("limit", strconv.Itoa(int(max)))
+	q.Set("limit", strconv.Itoa(max))
 	u.RawQuery = q.Encode()
 
 	return u, nil
