@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/ConductorOne/baton-confluence/pkg/connector/client"
+	"github.com/conductorone/baton-confluence/pkg/connector/client"
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/annotations"
 	"github.com/conductorone/baton-sdk/pkg/connectorbuilder"
@@ -21,7 +21,6 @@ var (
 		Id:          "group",
 		DisplayName: "Group",
 		Traits:      []v2.ResourceType_Trait{v2.ResourceType_TRAIT_GROUP},
-		Annotations: v1AnnotationsForResourceType("group"),
 	}
 	resourceTypeUser = &v2.ResourceType{
 		Id:          "user",
@@ -29,7 +28,7 @@ var (
 		Traits: []v2.ResourceType_Trait{
 			v2.ResourceType_TRAIT_USER,
 		},
-		Annotations: v1AnnotationsForResourceType("user"),
+		Annotations: annotationsForUserResourceType(),
 	}
 )
 
@@ -60,11 +59,6 @@ func New(ctx context.Context, config Config) (*Confluence, error) {
 }
 
 func (c *Confluence) Metadata(ctx context.Context) (*v2.ConnectorMetadata, error) {
-	_, err := c.Validate(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	var annos annotations.Annotations
 	annos.Update(&v2.ExternalLink{
 		Url: c.domain,
@@ -72,6 +66,7 @@ func (c *Confluence) Metadata(ctx context.Context) (*v2.ConnectorMetadata, error
 
 	return &v2.ConnectorMetadata{
 		DisplayName: "Confluence",
+		Description: "Connector syncing Confluence users and groups to Baton",
 		Annotations: annos,
 	}, nil
 }
