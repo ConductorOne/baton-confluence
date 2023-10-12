@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"runtime/debug"
 	"strings"
 	"syscall"
@@ -204,11 +205,7 @@ var localtime time.Tm
 
 // struct tm *localtime(const time_t *timep);
 func Xlocaltime(_ *TLS, timep uintptr) uintptr {
-	loc := gotime.Local
-	if r := getenv(Environ(), "TZ"); r != 0 {
-		zone, off := parseZone(GoString(r))
-		loc = gotime.FixedZone(zone, -off)
-	}
+	loc := getLocalLocation()
 	ut := *(*time.Time_t)(unsafe.Pointer(timep))
 	t := gotime.Unix(int64(ut), 0).In(loc)
 	localtime.Ftm_sec = int32(t.Second())
@@ -225,11 +222,7 @@ func Xlocaltime(_ *TLS, timep uintptr) uintptr {
 
 // struct tm *localtime_r(const time_t *timep, struct tm *result);
 func Xlocaltime_r(_ *TLS, timep, result uintptr) uintptr {
-	loc := gotime.Local
-	if r := getenv(Environ(), "TZ"); r != 0 {
-		zone, off := parseZone(GoString(r))
-		loc = gotime.FixedZone(zone, -off)
-	}
+	loc := getLocalLocation()
 	ut := *(*time.Time_t)(unsafe.Pointer(timep))
 	t := gotime.Unix(int64(ut), 0).In(loc)
 	(*time.Tm)(unsafe.Pointer(result)).Ftm_sec = int32(t.Second())
@@ -309,6 +302,8 @@ func Xsysconf(t *TLS, name int32) long {
 		return -1
 	case unistd.X_SC_GETGR_R_SIZE_MAX:
 		return -1
+	case unistd.X_SC_NPROCESSORS_ONLN:
+		return long(runtime.NumCPU())
 	}
 
 	panic(todo("", name))
@@ -359,7 +354,7 @@ func Xftruncate(t *TLS, fd int32, length types.Off_t) int32 {
 	}
 
 	if dmesgs {
-		dmesg("%v: %d %#x: ok", origin(1), fd, length)
+		dmesg("%v: fd %d length %#0x: ok", origin(1), fd, length)
 	}
 	return 0
 }
@@ -377,10 +372,10 @@ func Xread(t *TLS, fd int32, buf uintptr, count types.Size_t) types.Ssize_t {
 		return -1
 	}
 
-	// if dmesgs {
-	// 	// dmesg("%v: %d %#x: %#x\n%s", origin(1), fd, count, n, hex.Dump(GoBytes(buf, int(n))))
-	// 	dmesg("%v: %d %#x: %#x", origin(1), fd, count, n)
-	// }
+	if dmesgs {
+		// dmesg("%v: %d %#x: %#x\n%s", origin(1), fd, count, n, hex.Dump(GoBytes(buf, int(n))))
+		dmesg("%v: fd %d, buf %#0x, count %#x: n %#x", origin(1), fd, count, n)
+	}
 	return types.Ssize_t(n)
 }
 
@@ -392,19 +387,19 @@ func Xwrite(t *TLS, fd int32, buf uintptr, count types.Size_t) types.Ssize_t {
 		var n uintptr
 		switch n, _, err = unix.Syscall(unix.SYS_WRITE, uintptr(fd), buf, uintptr(count)); err {
 		case 0:
-			// if dmesgs {
-			// 	// dmesg("%v: %d %#x: %#x\n%s", origin(1), fd, count, n, hex.Dump(GoBytes(buf, int(n))))
-			// 	dmesg("%v: %d %#x: %#x", origin(1), fd, count, n)
-			// }
+			if dmesgs {
+				// dmesg("%v: %d %#x: %#x\n%s", origin(1), fd, count, n, hex.Dump(GoBytes(buf, int(n))))
+				dmesg("%v: %d %#x: %#x", origin(1), fd, count, n)
+			}
 			return types.Ssize_t(n)
 		case errno.EAGAIN:
 			// nop
 		}
 	}
 
-	// if dmesgs {
-	// 	dmesg("%v: fd %v, count %#x: %v", origin(1), fd, count, err)
-	// }
+	if dmesgs {
+		dmesg("%v: fd %v, buf %#0x, count %#x: %v", origin(1), fd, count, err)
+	}
 	t.setErrno(err)
 	return -1
 }
@@ -1465,8 +1460,16 @@ func X__inet_ntoa(t *TLS, in1 in.In_addr) uintptr {
 }
 
 func Xmmap(t *TLS, addr uintptr, length types.Size_t, prot, flags, fd int32, offset types.Off_t) uintptr {
+	// On 2021-12-23, a new syscall for mmap was introduced:
+	//
+	// 	49	STD NOLOCK	{ void *sys_mmap(void *addr, size_t len, int prot, \
+	// 			    int flags, int fd, off_t pos); }
+	//  src: https://github.com/golang/go/issues/59661
+
+	const unix_SYS_MMAP = 49
+
 	// Cannot avoid the syscall here, addr sometimes matter.
-	data, _, err := unix.Syscall6(unix.SYS_MMAP, addr, uintptr(length), uintptr(prot), uintptr(flags), uintptr(fd), uintptr(offset))
+	data, _, err := unix.Syscall6(unix_SYS_MMAP, addr, uintptr(length), uintptr(prot), uintptr(flags), uintptr(fd), uintptr(offset))
 	if err != 0 {
 		if dmesgs {
 			dmesg("%v: %v FAIL", origin(1), err)
@@ -1476,7 +1479,7 @@ func Xmmap(t *TLS, addr uintptr, length types.Size_t, prot, flags, fd int32, off
 	}
 
 	if dmesgs {
-		dmesg("%v: %#x", origin(1), data)
+		dmesg("%v: addr %#0x, length %#x0, prot %#0x, flags %#0x, fd %d, offset %#0x returns %#0x", origin(1), addr, length, prot, flags, fd, offset, data)
 	}
 	return data
 }
@@ -1486,7 +1489,7 @@ func X__errno(t *TLS) uintptr {
 }
 
 func X__ccgo_pthreadMutexattrGettype(tls *TLS, a uintptr) int32 { /* pthread_attr_get.c:93:5: */
-	return (int32((*pthread_mutexattr_t)(unsafe.Pointer(a)).__attr & uint32(3)))
+	return (int32((*pthread_mutexattr_t)(unsafe.Pointer(a)).F__attr & uint32(3)))
 }
 
 func X__ccgo_getMutexType(tls *TLS, m uintptr) int32 { /* pthread_mutex_lock.c:3:5: */
@@ -1523,7 +1526,7 @@ func Xpthread_mutexattr_settype(tls *TLS, a uintptr, type1 int32) int32 { /* pth
 	if uint32(type1) > uint32(2) {
 		return 22
 	}
-	(*pthread_mutexattr_t)(unsafe.Pointer(a)).__attr = (((*pthread_mutexattr_t)(unsafe.Pointer(a)).__attr & Uint32FromInt32(CplInt32(3))) | uint32(type1))
+	(*pthread_mutexattr_t)(unsafe.Pointer(a)).F__attr = (((*pthread_mutexattr_t)(unsafe.Pointer(a)).F__attr & Uint32FromInt32(CplInt32(3))) | uint32(type1))
 	return 0
 }
 
@@ -1576,3 +1579,20 @@ func Xpthread_mutex_init(t *TLS, pMutex, pAttr uintptr) int32 {
 	mutexes[pMutex] = newMutex(typ)
 	return 0
 }
+
+// uint16_t __builtin_bswap16 (uint32_t x)
+func Xbswap16(t *TLS, x uint16) uint16 {
+	return X__builtin_bswap16(t, x)
+}
+
+// uint32_t __builtin_bswap32 (uint32_t x)
+func Xbswap32(t *TLS, x uint32) uint32 {
+	return X__builtin_bswap32(t, x)
+}
+
+// uint64_t __builtin_bswap64 (uint64_t x)
+func Xbswap64(t *TLS, x uint64) uint64 {
+	return X__builtin_bswap64(t, x)
+}
+
+func X__builtin_isblank(t *TLS, _c int32) int32 { return Xisblank(t, _c) }

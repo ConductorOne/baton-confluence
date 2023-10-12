@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"runtime/debug"
 	"strings"
 	"syscall"
@@ -204,11 +205,7 @@ var localtime time.Tm
 
 // struct tm *localtime(const time_t *timep);
 func Xlocaltime(_ *TLS, timep uintptr) uintptr {
-	loc := gotime.Local
-	if r := getenv(Environ(), "TZ"); r != 0 {
-		zone, off := parseZone(GoString(r))
-		loc = gotime.FixedZone(zone, -off)
-	}
+	loc := getLocalLocation()
 	ut := *(*time.Time_t)(unsafe.Pointer(timep))
 	t := gotime.Unix(int64(ut), 0).In(loc)
 	localtime.Ftm_sec = int32(t.Second())
@@ -225,11 +222,7 @@ func Xlocaltime(_ *TLS, timep uintptr) uintptr {
 
 // struct tm *localtime_r(const time_t *timep, struct tm *result);
 func Xlocaltime_r(_ *TLS, timep, result uintptr) uintptr {
-	loc := gotime.Local
-	if r := getenv(Environ(), "TZ"); r != 0 {
-		zone, off := parseZone(GoString(r))
-		loc = gotime.FixedZone(zone, -off)
-	}
+	loc := getLocalLocation()
 	ut := *(*time.Time_t)(unsafe.Pointer(timep))
 	t := gotime.Unix(int64(ut), 0).In(loc)
 	(*time.Tm)(unsafe.Pointer(result)).Ftm_sec = int32(t.Second())
@@ -309,6 +302,8 @@ func Xsysconf(t *TLS, name int32) long {
 		return -1
 	case unistd.X_SC_GETGR_R_SIZE_MAX:
 		return -1
+	case unistd.X_SC_NPROCESSORS_ONLN:
+		return long(runtime.NumCPU())
 	}
 
 	panic(todo("", name))
@@ -1539,3 +1534,18 @@ func Xuuid_parse(t *TLS, in uintptr, uu uintptr) int32 {
 }
 
 func X__srget(t *TLS, stream uintptr) int32 { return Xgetc(t, stream) }
+
+// uint16_t __builtin_bswap16 (uint32_t x)
+func Xbswap16(t *TLS, x uint16) uint16 {
+	return X__builtin_bswap16(t, x)
+}
+
+// uint32_t __builtin_bswap32 (uint32_t x)
+func Xbswap32(t *TLS, x uint32) uint32 {
+	return X__builtin_bswap32(t, x)
+}
+
+// uint64_t __builtin_bswap64 (uint64_t x)
+func Xbswap64(t *TLS, x uint64) uint64 {
+	return X__builtin_bswap64(t, x)
+}
