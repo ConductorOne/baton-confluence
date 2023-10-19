@@ -8,7 +8,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"os/user"
 	"path/filepath"
 	"strings"
 	"time"
@@ -16,6 +15,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	"github.com/aws/aws-sdk-go-v2/internal/ini"
+	"github.com/aws/aws-sdk-go-v2/internal/shareddefaults"
 	"github.com/aws/smithy-go/logging"
 )
 
@@ -95,6 +95,8 @@ const (
 	retryModeKey        = "retry_mode"
 
 	caBundleKey = "ca_bundle"
+
+	sdkAppID = "sdk_ua_app_id"
 )
 
 // defaultSharedConfigProfile allows for swapping the default profile for testing
@@ -108,7 +110,7 @@ var defaultSharedConfigProfile = DefaultSharedConfigProfile
 //   - Linux/Unix: $HOME/.aws/credentials
 //   - Windows: %USERPROFILE%\.aws\credentials
 func DefaultSharedCredentialsFilename() string {
-	return filepath.Join(userHomeDir(), ".aws", "credentials")
+	return filepath.Join(shareddefaults.UserHomeDir(), ".aws", "credentials")
 }
 
 // DefaultSharedConfigFilename returns the SDK's default file path for
@@ -119,7 +121,7 @@ func DefaultSharedCredentialsFilename() string {
 //   - Linux/Unix: $HOME/.aws/config
 //   - Windows: %USERPROFILE%\.aws\config
 func DefaultSharedConfigFilename() string {
-	return filepath.Join(userHomeDir(), ".aws", "config")
+	return filepath.Join(shareddefaults.UserHomeDir(), ".aws", "config")
 }
 
 // DefaultSharedConfigFiles is a slice of the default shared config files that
@@ -142,18 +144,10 @@ type SSOSession struct {
 	SSOStartURL string
 }
 
-func (s *SSOSession) setFromIniSection(section ini.Section) error {
+func (s *SSOSession) setFromIniSection(section ini.Section) {
+	updateString(&s.Name, section, ssoSessionNameKey)
 	updateString(&s.SSORegion, section, ssoRegionKey)
 	updateString(&s.SSOStartURL, section, ssoStartURLKey)
-
-	if s.SSORegion == "" || s.SSOStartURL == "" {
-		return fmt.Errorf(
-			"%v and %v are required parameters in sso-session section",
-			ssoRegionKey, ssoStartURLKey,
-		)
-	}
-
-	return nil
 }
 
 // SharedConfig represents the configuration fields of the SDK config files.
@@ -275,6 +269,9 @@ type SharedConfig struct {
 	//
 	//  ca_bundle=$HOME/my_custom_ca_bundle
 	CustomCABundle string
+
+	// aws sdk app ID that can be added to user agent header string
+	AppID string
 }
 
 func (c SharedConfig) getDefaultsMode(ctx context.Context) (value aws.DefaultsMode, ok bool, err error) {
@@ -395,6 +392,11 @@ func (c SharedConfig) getCustomCABundle(context.Context) (io.Reader, bool, error
 		return nil, false, err
 	}
 	return bytes.NewReader(b), true, nil
+}
+
+// getAppID returns the sdk app ID if set in shared config profile
+func (c SharedConfig) getAppID(context.Context) (string, bool, error) {
+	return c.AppID, len(c.AppID) > 0, nil
 }
 
 // loadSharedConfigIgnoreNotExist is an alias for loadSharedConfig with the
@@ -738,6 +740,8 @@ func mergeSections(dst *ini.Sections, src ini.Sections) error {
 			defaultsModeKey,
 			retryModeKey,
 			caBundleKey,
+			roleDurationSecondsKey,
+			retryMaxAttemptsKey,
 
 			ssoSessionNameKey,
 			ssoAccountIDKey,
@@ -747,16 +751,6 @@ func mergeSections(dst *ini.Sections, src ini.Sections) error {
 		}
 		for i := range stringKeys {
 			if err := mergeStringKey(&srcSection, &dstSection, sectionName, stringKeys[i]); err != nil {
-				return err
-			}
-		}
-
-		intKeys := []string{
-			roleDurationSecondsKey,
-			retryMaxAttemptsKey,
-		}
-		for i := range intKeys {
-			if err := mergeIntKey(&srcSection, &dstSection, sectionName, intKeys[i]); err != nil {
 				return err
 			}
 		}
@@ -782,26 +776,6 @@ func mergeStringKey(srcSection *ini.Section, dstSection *ini.Section, sectionNam
 		}
 
 		dstSection.UpdateValue(key, val)
-		dstSection.UpdateSourceFile(key, srcSection.SourceFile[key])
-	}
-	return nil
-}
-
-func mergeIntKey(srcSection *ini.Section, dstSection *ini.Section, sectionName, key string) error {
-	if srcSection.Has(key) {
-		srcValue := srcSection.Int(key)
-		v, err := ini.NewIntValue(srcValue)
-		if err != nil {
-			return fmt.Errorf("error merging %s, %w", key, err)
-		}
-
-		if dstSection.Has(key) {
-			dstSection.Logs = append(dstSection.Logs, newMergeKeyLogMessage(sectionName, key,
-				dstSection.SourceFile[key], srcSection.SourceFile[key]))
-
-		}
-
-		dstSection.UpdateValue(key, v)
 		dstSection.UpdateSourceFile(key, srcSection.SourceFile[key])
 	}
 	return nil
@@ -846,9 +820,8 @@ func (c *SharedConfig) setFromIniSections(profiles map[string]struct{}, profile 
 		// profile only have credential provider options.
 		c.clearAssumeRoleOptions()
 	} else {
-		// First time a profile has been seen, It must either be a assume role
-		// credentials, or SSO. Assert if the credential type requires a role ARN,
-		// the ARN is also set, or validate that the SSO configuration is complete.
+		// First time a profile has been seen. Assert if the credential type
+		// requires a role ARN, the ARN is also set
 		if err := c.validateCredentialsConfig(profile); err != nil {
 			return err
 		}
@@ -900,29 +873,18 @@ func (c *SharedConfig) setFromIniSections(profiles map[string]struct{}, profile 
 	// as a section in the config file. Load the SSO session using the name
 	// provided. If the session section is not found or incomplete an error
 	// will be returned.
-	if c.SSOSessionName != "" {
-		c.SSOSession, err = getSSOSession(c.SSOSessionName, sections, logger)
-		if err != nil {
-			return err
+	if c.hasSSOTokenProviderConfiguration() {
+		section, ok := sections.GetSection(ssoSectionPrefix + strings.TrimSpace(c.SSOSessionName))
+		if !ok {
+			return fmt.Errorf("failed to find SSO session section, %v", c.SSOSessionName)
 		}
+		var ssoSession SSOSession
+		ssoSession.setFromIniSection(section)
+		ssoSession.Name = c.SSOSessionName
+		c.SSOSession = &ssoSession
 	}
 
 	return nil
-}
-
-func getSSOSession(name string, sections ini.Sections, logger logging.Logger) (*SSOSession, error) {
-	section, ok := sections.GetSection(ssoSectionPrefix + strings.TrimSpace(name))
-	if !ok {
-		return nil, fmt.Errorf("failed to find SSO session section, %v", name)
-	}
-
-	var ssoSession SSOSession
-	if err := ssoSession.setFromIniSection(section); err != nil {
-		return nil, fmt.Errorf("failed to load SSO session %v, %w", name, err)
-	}
-	ssoSession.Name = name
-
-	return &ssoSession, nil
 }
 
 // setFromIniSection loads the configuration from the profile section defined in
@@ -972,9 +934,16 @@ func (c *SharedConfig) setFromIniSection(profile string, section ini.Section) er
 	updateString(&c.SSOAccountID, section, ssoAccountIDKey)
 	updateString(&c.SSORoleName, section, ssoRoleNameKey)
 
+	// we're retaining a behavioral quirk with this field that existed before
+	// the removal of literal parsing for #2276:
+	//   - if the key is missing, the config field will not be set
+	//   - if the key is set to a non-numeric, the config field will be set to 0
 	if section.Has(roleDurationSecondsKey) {
-		d := time.Duration(section.Int(roleDurationSecondsKey)) * time.Second
-		c.RoleDurationSeconds = &d
+		if v, ok := section.Int(roleDurationSecondsKey); ok {
+			c.RoleDurationSeconds = aws.Duration(time.Duration(v) * time.Second)
+		} else {
+			c.RoleDurationSeconds = aws.Duration(time.Duration(0))
+		}
 	}
 
 	updateString(&c.CredentialProcess, section, credentialProcessKey)
@@ -1004,6 +973,9 @@ func (c *SharedConfig) setFromIniSection(profile string, section ini.Section) er
 	}
 
 	updateString(&c.CustomCABundle, section, caBundleKey)
+
+	// user agent app ID added to request User-Agent header
+	updateString(&c.AppID, section, sdkAppID)
 
 	// Shared Credentials
 	creds := aws.Credentials{
@@ -1088,17 +1060,66 @@ func (c *SharedConfig) validateCredentialType() error {
 		len(c.CredentialProcess) != 0,
 		len(c.WebIdentityTokenFile) != 0,
 	) {
-		return fmt.Errorf("only one credential type may be specified per profile: source profile, credential source, credential process, web identity token, or sso")
+		return fmt.Errorf("only one credential type may be specified per profile: source profile, credential source, credential process, web identity token")
 	}
 
 	return nil
 }
 
 func (c *SharedConfig) validateSSOConfiguration() error {
-	if !c.hasSSOConfiguration() {
+	if c.hasSSOTokenProviderConfiguration() {
+		err := c.validateSSOTokenProviderConfiguration()
+		if err != nil {
+			return err
+		}
 		return nil
 	}
 
+	if c.hasLegacySSOConfiguration() {
+		err := c.validateLegacySSOConfiguration()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *SharedConfig) validateSSOTokenProviderConfiguration() error {
+	var missing []string
+
+	if len(c.SSOSessionName) == 0 {
+		missing = append(missing, ssoSessionNameKey)
+	}
+
+	if c.SSOSession == nil {
+		missing = append(missing, ssoSectionPrefix)
+	} else {
+		if len(c.SSOSession.SSORegion) == 0 {
+			missing = append(missing, ssoRegionKey)
+		}
+
+		if len(c.SSOSession.SSOStartURL) == 0 {
+			missing = append(missing, ssoStartURLKey)
+		}
+	}
+
+	if len(missing) > 0 {
+		return fmt.Errorf("profile %q is configured to use SSO but is missing required configuration: %s",
+			c.Profile, strings.Join(missing, ", "))
+	}
+
+	if len(c.SSORegion) > 0 && c.SSORegion != c.SSOSession.SSORegion {
+		return fmt.Errorf("%s in profile %q must match %s in %s", ssoRegionKey, c.Profile, ssoRegionKey, ssoSectionPrefix)
+	}
+
+	if len(c.SSOStartURL) > 0 && c.SSOStartURL != c.SSOSession.SSOStartURL {
+		return fmt.Errorf("%s in profile %q must match %s in %s", ssoStartURLKey, c.Profile, ssoStartURLKey, ssoSectionPrefix)
+	}
+
+	return nil
+}
+
+func (c *SharedConfig) validateLegacySSOConfiguration() error {
 	var missing []string
 
 	if len(c.SSORegion) == 0 {
@@ -1109,11 +1130,18 @@ func (c *SharedConfig) validateSSOConfiguration() error {
 		missing = append(missing, ssoStartURLKey)
 	}
 
+	if len(c.SSOAccountID) == 0 {
+		missing = append(missing, ssoAccountIDKey)
+	}
+
+	if len(c.SSORoleName) == 0 {
+		missing = append(missing, ssoRoleNameKey)
+	}
+
 	if len(missing) > 0 {
 		return fmt.Errorf("profile %q is configured to use SSO but is missing required configuration: %s",
 			c.Profile, strings.Join(missing, ", "))
 	}
-
 	return nil
 }
 
@@ -1133,15 +1161,15 @@ func (c *SharedConfig) hasCredentials() bool {
 }
 
 func (c *SharedConfig) hasSSOConfiguration() bool {
-	switch {
-	case len(c.SSOAccountID) != 0:
-	case len(c.SSORegion) != 0:
-	case len(c.SSORoleName) != 0:
-	case len(c.SSOStartURL) != 0:
-	default:
-		return false
-	}
-	return true
+	return c.hasSSOTokenProviderConfiguration() || c.hasLegacySSOConfiguration()
+}
+
+func (c *SharedConfig) hasSSOTokenProviderConfiguration() bool {
+	return len(c.SSOSessionName) > 0
+}
+
+func (c *SharedConfig) hasLegacySSOConfiguration() bool {
+	return len(c.SSORegion) > 0 || len(c.SSOAccountID) > 0 || len(c.SSOStartURL) > 0 || len(c.SSORoleName) > 0
 }
 
 func (c *SharedConfig) clearAssumeRoleOptions() {
@@ -1232,22 +1260,6 @@ func (e CredentialRequiresARNError) Error() string {
 	)
 }
 
-func userHomeDir() string {
-	// Ignore errors since we only care about Windows and *nix.
-	home, _ := os.UserHomeDir()
-
-	if len(home) > 0 {
-		return home
-	}
-
-	currUser, _ := user.Current()
-	if currUser != nil {
-		home = currUser.HomeDir
-	}
-
-	return home
-}
-
 func oneOrNone(bs ...bool) bool {
 	var count int
 
@@ -1281,12 +1293,13 @@ func updateInt(dst *int, section ini.Section, key string) error {
 	if !section.Has(key) {
 		return nil
 	}
-	if vt, _ := section.ValueType(key); vt != ini.IntegerType {
-		return fmt.Errorf("invalid value %s=%s, expect integer",
-			key, section.String(key))
 
+	v, ok := section.Int(key)
+	if !ok {
+		return fmt.Errorf("invalid value %s=%s, expect integer", key, section.String(key))
 	}
-	*dst = int(section.Int(key))
+
+	*dst = int(v)
 	return nil
 }
 
@@ -1296,7 +1309,10 @@ func updateBool(dst *bool, section ini.Section, key string) {
 	if !section.Has(key) {
 		return
 	}
-	*dst = section.Bool(key)
+
+	// retains pre-#2276 behavior where non-bool value would resolve to false
+	v, _ := section.Bool(key)
+	*dst = v
 }
 
 // updateBoolPtr will only update the dst with the value in the section key,
@@ -1305,8 +1321,11 @@ func updateBoolPtr(dst **bool, section ini.Section, key string) {
 	if !section.Has(key) {
 		return
 	}
+
+	// retains pre-#2276 behavior where non-bool value would resolve to false
+	v, _ := section.Bool(key)
 	*dst = new(bool)
-	**dst = section.Bool(key)
+	**dst = v
 }
 
 // updateEndpointDiscoveryType will only update the dst with the value in the section, if
@@ -1338,7 +1357,8 @@ func updateUseDualStackEndpoint(dst *aws.DualStackEndpointState, section ini.Sec
 		return
 	}
 
-	if section.Bool(key) {
+	// retains pre-#2276 behavior where non-bool value would resolve to false
+	if v, _ := section.Bool(key); v {
 		*dst = aws.DualStackEndpointStateEnabled
 	} else {
 		*dst = aws.DualStackEndpointStateDisabled
@@ -1354,7 +1374,8 @@ func updateUseFIPSEndpoint(dst *aws.FIPSEndpointState, section ini.Section, key 
 		return
 	}
 
-	if section.Bool(key) {
+	// retains pre-#2276 behavior where non-bool value would resolve to false
+	if v, _ := section.Bool(key); v {
 		*dst = aws.FIPSEndpointStateEnabled
 	} else {
 		*dst = aws.FIPSEndpointStateDisabled

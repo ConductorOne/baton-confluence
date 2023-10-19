@@ -16,6 +16,9 @@ func WithAnnotation(msgs ...proto.Message) ResourceOption {
 	return func(r *v2.Resource) error {
 		annos := annotations.Annotations(r.Annotations)
 		for _, msg := range msgs {
+			if msg == nil {
+				continue
+			}
 			annos.Append(msg)
 		}
 		r.Annotations = annos
@@ -32,18 +35,36 @@ func WithParentResourceID(parentResourceID *v2.ResourceId) ResourceOption {
 	}
 }
 
+func WithDescription(description string) ResourceOption {
+	return func(r *v2.Resource) error {
+		r.Description = description
+
+		return nil
+	}
+}
+
 func WithUserTrait(opts ...UserTraitOption) ResourceOption {
 	return func(r *v2.Resource) error {
+		var err error
 		ut := &v2.UserTrait{}
 
 		annos := annotations.Annotations(r.Annotations)
-		_, err := annos.Pick(ut)
+
+		picked, err := annos.Pick(ut)
 		if err != nil {
 			return err
 		}
-
-		for _, o := range opts {
-			err = o(ut)
+		if picked {
+			// We found an existing user trait, so we want to update it in place
+			for _, o := range opts {
+				err = o(ut)
+				if err != nil {
+					return err
+				}
+			}
+		} else {
+			// No existing user trait found, so create a new one with the provided options
+			ut, err = NewUserTrait(opts...)
 			if err != nil {
 				return err
 			}

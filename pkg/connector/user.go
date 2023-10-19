@@ -3,7 +3,7 @@ package connector
 import (
 	"context"
 
-	"github.com/ConductorOne/baton-confluence/pkg/connector/client"
+	"github.com/conductorone/baton-confluence/pkg/connector/client"
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/annotations"
 	"github.com/conductorone/baton-sdk/pkg/pagination"
@@ -21,10 +21,37 @@ func (o *userResourceType) ResourceType(_ context.Context) *v2.ResourceType {
 	return o.resourceType
 }
 
+func userResource(ctx context.Context, user *client.ConfluenceUser) (*v2.Resource, error) {
+	profile := map[string]interface{}{
+		"user_name":    user.DisplayName,
+		"account_type": user.AccountType,
+		"email":        user.Email,
+		"id":           user.AccountId,
+	}
+
+	userTraitOptions := []resource.UserTraitOption{
+		resource.WithUserProfile(profile),
+		resource.WithEmail(user.Email, true),
+		resource.WithStatus(v2.UserTrait_Status_STATUS_ENABLED),
+	}
+
+	resource, err := resource.NewUserResource(
+		user.DisplayName,
+		resourceTypeUser,
+		user.AccountId,
+		userTraitOptions,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return resource, nil
+}
+
 func (o *userResourceType) List(ctx context.Context, _ *v2.ResourceId, pt *pagination.Token) ([]*v2.Resource, string, annotations.Annotations, error) {
 	l := ctxzap.Extract(ctx)
 
-	users, _, err := o.client.GetUsers(ctx, "", 100)
+	users, _, err := o.client.GetUsers(ctx, "", ResourcesPageSize)
 	if err != nil {
 		return nil, "", nil, err
 	}
@@ -34,16 +61,14 @@ func (o *userResourceType) List(ctx context.Context, _ *v2.ResourceId, pt *pagin
 			l.Debug("confluence: user is not of type atlassian", zap.Any("user", user))
 			continue
 		}
-		annos := &v2.V1Identifier{
-			Id: user.AccountId,
-		}
-		profile := userProfile(ctx, user)
-		userTrait := []resource.UserTraitOption{resource.WithUserProfile(profile), resource.WithEmail(user.Email, true), resource.WithStatus(v2.UserTrait_Status_STATUS_ENABLED)}
-		userResource, err := resource.NewUserResource(user.DisplayName, resourceTypeUser, user.AccountId, userTrait, resource.WithAnnotation(annos))
+
+		userCopy := user
+		ur, err := userResource(ctx, &userCopy)
 		if err != nil {
 			return nil, "", nil, err
 		}
-		rv = append(rv, userResource)
+
+		rv = append(rv, ur)
 	}
 
 	return rv, "", nil, nil
@@ -62,13 +87,4 @@ func userBuilder(client *client.ConfluenceClient) *userResourceType {
 		resourceType: resourceTypeUser,
 		client:       client,
 	}
-}
-
-func userProfile(ctx context.Context, user client.ConfluenceUser) map[string]interface{} {
-	profile := make(map[string]interface{})
-	profile["user_name"] = user.DisplayName
-	profile["account_type"] = user.AccountType
-	profile["email"] = user.Email
-	profile["id"] = user.AccountId
-	return profile
 }
