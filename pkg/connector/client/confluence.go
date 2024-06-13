@@ -132,7 +132,7 @@ func (c *ConfluenceClient) GetUsers(ctx context.Context, pageToken string, pageS
 			pageToken = incToken(pageToken, len(userPage))
 		}
 
-		// De-dupe users accross groups
+		// De-dupe users across groups
 		for _, user := range users {
 			if _, ok := userMap[user.AccountId]; !ok {
 				userMap[user.AccountId] = user
@@ -262,14 +262,14 @@ func (c *ConfluenceClient) genURL(pageToken string, pageSize int, path string) (
 
 	u := c.apiBase.ResolveReference(parsed)
 
-	max := pageSize
-	if max == 0 || max > maxResults {
-		max = maxResults
+	maximum := pageSize
+	if maximum == 0 || maximum > maxResults {
+		maximum = maxResults
 	}
 
 	q := u.Query()
 	q.Set("start", pageToken)
-	q.Set("limit", strconv.Itoa(max))
+	q.Set("limit", strconv.Itoa(maximum))
 	u.RawQuery = q.Encode()
 
 	return u, nil
