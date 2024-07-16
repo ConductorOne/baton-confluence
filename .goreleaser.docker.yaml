@@ -5,7 +5,7 @@ builds:
     env:
       - CGO_ENABLED=0
     id: linux
-    main: ./cmd
+    main: ./cmd/baton-confluence
     goos:
       - linux
     goarch:
