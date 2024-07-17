@@ -4,36 +4,42 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/conductorone/baton-sdk/pkg/cli"
-	"github.com/spf13/cobra"
+	"github.com/conductorone/baton-sdk/pkg/field"
+	"github.com/spf13/viper"
 )
 
-// config defines the external configuration required for the connector to run.
-type config struct {
-	cli.BaseConfig `mapstructure:",squash"` // Puts the base config options in the same place as the connector options
+var (
+	apiKeyField = field.StringField(
+		"api-key",
+		field.WithDescription("The api key for your Confluence account. ($BATON_API_KEY)"),
+	)
+	domainUrl = field.StringField(
+		"domain-url",
+		field.WithDescription("The domain url for your Confluence account. ($BATON_DOMAIN_URL)"),
+	)
+	usernameField = field.StringField(
+		"username",
+		field.WithDescription("The username for your Confluence account. ($BATON_USERNAME)"),
+	)
+)
 
-	ApiKey    string `mapstructure:"api-key"`
-	DomainUrl string `mapstructure:"domain-url"`
-	Username  string `mapstructure:"username"`
+// configurationFields defines the external configuration required for the connector to run.
+var configurationFields = []field.SchemaField{
+	apiKeyField,
+	domainUrl,
+	usernameField,
 }
 
 // validateConfig is run after the configuration is loaded, and should return an error if it isn't valid.
-func validateConfig(ctx context.Context, cfg *config) error {
-	if cfg.DomainUrl == "" {
-		return fmt.Errorf("domain url is missing")
-	}
-	if cfg.ApiKey == "" {
+func validateConfig(ctx context.Context, v *viper.Viper) error {
+	if v.GetString(apiKeyField.FieldName) == "" {
 		return fmt.Errorf("api key is missing")
 	}
-	if cfg.Username == "" {
+	if v.GetString(domainUrl.FieldName) == "" {
+		return fmt.Errorf("domain url is missing")
+	}
+	if v.GetString(usernameField.FieldName) == "" {
 		return fmt.Errorf("username is missing")
 	}
 	return nil
-}
-
-// cmdFlags sets the cmdFlags required for the connector.
-func cmdFlags(cmd *cobra.Command) {
-	cmd.PersistentFlags().String("domain-url", "", "The domain url for your Confluence account. ($BATON_DOMAIN_URL)")
-	cmd.PersistentFlags().String("api-key", "", "The api key for your Confluence account. ($BATON_API_KEY)")
-	cmd.PersistentFlags().String("username", "", "The username for your Confluence account. ($BATON_USERNAME)")
 }

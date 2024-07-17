@@ -43,15 +43,20 @@ type Confluence struct {
 	userName string
 }
 
-func New(ctx context.Context, config Config) (*Confluence, error) {
-	client, err := client.NewConfluenceClient(ctx, config.UserName, config.ApiKey, config.Domain)
+func New(
+	ctx context.Context,
+	apiKey string,
+	domainUrl string,
+	username string,
+) (*Confluence, error) {
+	client, err := client.NewConfluenceClient(ctx, username, apiKey, domainUrl)
 	if err != nil {
 		return nil, err
 	}
 	rv := &Confluence{
-		domain:   config.Domain,
-		apiKey:   config.ApiKey,
-		userName: config.UserName,
+		domain:   domainUrl,
+		apiKey:   apiKey,
+		userName: username,
 		client:   client,
 	}
 	return rv, nil
