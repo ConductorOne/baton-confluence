@@ -12,3 +12,14 @@ func annotationsForUserResourceType() annotations.Annotations {
 	annos.Update(&v2.SkipEntitlementsAndGrants{})
 	return annos
 }
+
+func WithRateLimitAnnotations(
+	ratelimitDescriptionAnnotations ...*v2.RateLimitDescription,
+) annotations.Annotations {
+	outputAnnotations := annotations.Annotations{}
+	for _, annotation := range ratelimitDescriptionAnnotations {
+		outputAnnotations.Append(annotation)
+	}
+
+	return outputAnnotations
+}
