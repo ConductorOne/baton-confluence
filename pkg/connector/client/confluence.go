@@ -15,6 +15,8 @@ import (
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/helpers"
 	"github.com/conductorone/baton-sdk/pkg/uhttp"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -349,6 +351,334 @@ func strToInt(s string) int {
 		return 0
 	}
 	return i
+}
+
+// GetSpaces uses pagination to get a list of spaces from the global list.
+func (c *ConfluenceClient) GetSpaces(
+	ctx context.Context,
+	pageSize int,
+	paginationCursor string,
+) (
+	[]ConfluenceSpace,
+	string,
+	*v2.RateLimitDescription,
+	error,
+) {
+	spacesListUrl, err := c.genURLWithPaginationCursor(
+		SpacesListUrlPath,
+		pageSize,
+		paginationCursor,
+	)
+	if err != nil {
+		return nil, "", nil, err
+	}
+
+	var response *confluenceSpaceList
+	ratelimitData, err := c.get(ctx, spacesListUrl, &response)
+	if err != nil {
+		return nil, "", ratelimitData, err
+	}
+
+	cursor := extractPaginationCursor(response.Links)
+	spaces := response.Results
+
+	return spaces, cursor, ratelimitData, nil
+}
+
+func (c *ConfluenceClient) ConfluenceSpaceOperations(
+	ctx context.Context,
+	cursor string,
+	pageSize int,
+	spaceId string,
+) (
+	[]ConfluenceSpaceOperation,
+	string,
+	*v2.RateLimitDescription,
+	error,
+) {
+	logger := ctxzap.Extract(ctx)
+	logger.Debug("fetching space", zap.String("spaceId", spaceId))
+
+	spaceUrl, err := c.genURLWithPaginationCursor(
+		fmt.Sprintf(spacesGetUrlPath+"?include-operations=1", spaceId),
+		pageSize,
+		cursor,
+	)
+
+	if err != nil {
+		return nil, "", nil, err
+	}
+
+	var response *ConfluenceSpace
+	ratelimitData, err := c.get(ctx, spaceUrl, &response)
+	if err != nil {
+		return nil, "", ratelimitData, err
+	}
+
+	operations := make([]ConfluenceSpaceOperation, 0)
+	operations = append(operations, response.Operations.Results...)
+
+	nextToken := ""
+	if response.Operations.Meta.HasMore {
+		nextToken = response.Operations.Meta.Cursor
+	}
+
+	return operations, nextToken, ratelimitData, nil
+}
+
+func (c *ConfluenceClient) GetSpacePermissions(
+	ctx context.Context,
+	pageToken string,
+	pageSize int,
+	spaceId string,
+) (
+	[]ConfluenceSpacePermission,
+	string,
+	*v2.RateLimitDescription,
+	error,
+) {
+	spacePermissionsListUrl, err := c.genURLWithPaginationCursor(
+		fmt.Sprintf(SpacePermissionsListUrlPath, spaceId),
+		pageSize,
+		pageToken,
+	)
+	if err != nil {
+		return nil, "", nil, err
+	}
+
+	var response *ConfluenceSpacePermissionResponse
+	ratelimitData, err := c.get(
+		ctx,
+		spacePermissionsListUrl,
+		&response,
+	)
+	if err != nil {
+		return nil, "", ratelimitData, err
+	}
+	cursor := extractPaginationCursor(response.Links)
+	permissions := make([]ConfluenceSpacePermission, 0)
+	permissions = append(permissions, response.Results...)
+
+	return permissions, cursor, ratelimitData, nil
+}
+
+// getSubjectTypeFromPrincipalType map between ConductorOne representation and
+// Confluence representation. It just so happens that the representations are
+// the same, but I don't want to pass it straight along in case we get new
+// principal types that aren't a 100% match.
+func getSubjectTypeFromPrincipalType(principalType string) (string, error) {
+	switch principalType {
+	case "user":
+		return "user", nil
+	case "group":
+		return "group", nil
+	}
+	return "", fmt.Errorf("principal type '%s' is not supported", principalType)
+}
+
+func (c *ConfluenceClient) AddSpacePermission(
+	ctx context.Context,
+	spaceName string,
+	key string,
+	target string,
+	principalId string,
+	principalType string,
+) (
+	*v2.RateLimitDescription,
+	error,
+) {
+	spacePermissionsListUrl, err := c.genURLNonPaginated(
+		fmt.Sprintf(spacePermissionsCreateUrlPath, spaceName),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	subjectType, err := getSubjectTypeFromPrincipalType(principalType)
+	if err != nil {
+		return nil, err
+	}
+
+	bodyBytes, err := json.Marshal(
+		CreateSpacePermissionRequestBody{
+			SpacePermissionSubject{
+				Identifier: principalId,
+				Type:       subjectType,
+			},
+			SpacePermissionOperation{
+				Key:    key,
+				Target: target,
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	body := strings.NewReader(string(bodyBytes))
+
+	var response bool
+	ratelimitData, err := c.post(
+		ctx,
+		spacePermissionsListUrl,
+		&response,
+		body,
+	)
+	if err != nil {
+		return ratelimitData, err
+	}
+
+	return ratelimitData, nil
+}
+
+// findSpacePermission - There isn't a way to look up a permission by these
+// fields, so we need to list _all_ permissions in order to find the permission.
+func (c *ConfluenceClient) findSpacePermission(
+	ctx context.Context,
+	spaceId string,
+	key string,
+	target string,
+	principalId string,
+	principalType string,
+) (
+	*ConfluenceSpacePermission,
+	*v2.RateLimitDescription,
+	error,
+) {
+	// We need to list _all_ permissions in order to figure out the permission's ID.
+	cursor := ""
+	for {
+		listPermissionsUrl, err := c.genURLWithPaginationCursor(
+			fmt.Sprintf(
+				SpacePermissionsListUrlPath,
+				spaceId,
+			),
+			maxResults,
+			cursor,
+		)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		var response *ConfluenceSpacePermissionResponse
+		ratelimitData, err := c.get(
+			ctx,
+			listPermissionsUrl,
+			&response,
+		)
+		if err != nil {
+			return nil, ratelimitData, err
+		}
+		for _, permission := range response.Results {
+			if permission.Principal.Id == principalId &&
+				permission.Principal.Type == principalType &&
+				permission.Operation.Key == key &&
+				permission.Operation.TargetType == target {
+				return &permission, nil, nil
+			}
+		}
+		cursor = extractPaginationCursor(response.Links)
+		if cursor == "" {
+			break
+		}
+	}
+
+	return nil, nil, fmt.Errorf("space permission not found")
+}
+
+// findSpace - The v1 and v2 API are slightly different. The former uses "space
+// key", which is like the URL slug for the space. The latter use plain ID.
+func (c *ConfluenceClient) findSpace(
+	ctx context.Context,
+	spaceId string,
+) (
+	*ConfluenceSpace,
+	*v2.RateLimitDescription,
+	error,
+) {
+	getSpaceUrl, err := c.genURLNonPaginated(
+		fmt.Sprintf(
+			spacesGetUrlPath,
+			spaceId,
+		),
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var response *ConfluenceSpace
+	ratelimitData, err := c.get(
+		ctx,
+		getSpaceUrl,
+		&response,
+	)
+	if err != nil {
+		return nil, ratelimitData, err
+	}
+	return response, ratelimitData, nil
+}
+
+func (c *ConfluenceClient) RemoveSpacePermission(
+	ctx context.Context,
+	spaceId string,
+	key string,
+	target string,
+	principalId string,
+	principalType string,
+) (
+	*v2.RateLimitDescription,
+	error,
+) {
+	permission, ratelimitData, err := c.findSpacePermission(
+		ctx,
+		spaceId,
+		key,
+		target,
+		principalId,
+		principalType,
+	)
+
+	if err != nil {
+		return ratelimitData, err
+	}
+
+	space, ratelimitData, err := c.findSpace(ctx, spaceId)
+	if err != nil {
+		return ratelimitData, err
+	}
+
+	deletePermissionUrl, err := c.genURLNonPaginated(
+		fmt.Sprintf(
+			spacePermissionsUpdateUrlPath,
+			space.Key,
+			permission.Id,
+		),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	var response bool
+	ratelimitData, err = c.delete(
+		ctx,
+		deletePermissionUrl,
+		&response,
+	)
+	if err != nil {
+		return ratelimitData, err
+	}
+
+	return ratelimitData, nil
+}
+
+// extractPaginationCursor returns the query parameters from the "next" link in
+// the list response.
+func extractPaginationCursor(links ConfluenceLink) string {
+	parsedUrl, err := url.Parse(links.Next)
+	if err != nil {
+		return ""
+	}
+	return parsedUrl.Query().Get("cursor")
 }
 
 // WithConfluenceRatelimitData Per the docs: transient 5XX errors should be

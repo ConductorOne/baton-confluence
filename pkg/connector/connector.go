@@ -30,6 +30,11 @@ var (
 		},
 		Annotations: annotationsForUserResourceType(),
 	}
+	spaceResourceType = &v2.ResourceType{
+		Id:          "space",
+		DisplayName: "Space",
+		Traits:      []v2.ResourceType_Trait{},
+	}
 )
 
 type Config struct {
@@ -94,5 +99,6 @@ func (c *Confluence) ResourceSyncers(ctx context.Context) []connectorbuilder.Res
 	return []connectorbuilder.ResourceSyncer{
 		groupBuilder(c.client),
 		userBuilder(c.client),
+		newSpaceBuilder(c.client),
 	}
 }
