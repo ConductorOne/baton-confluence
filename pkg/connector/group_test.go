@@ -50,7 +50,8 @@ func TestGroups(t *testing.T) {
 
 	t.Run("should list grants for a group", func(t *testing.T) {
 		confluenceGroup := client.ConfluenceGroup{
-			Id: "456",
+			Id:   "456",
+			Name: "system-administrators",
 		}
 		group, _ := groupResource(ctx, &confluenceGroup)
 

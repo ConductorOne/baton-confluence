@@ -49,12 +49,18 @@ func FixturesServer() *httptest.Server {
 				var filename string
 				routeUrl := request.URL.String()
 				switch {
-				case strings.Contains(routeUrl, client.GroupsListUrlPath) && strings.Contains(routeUrl, "123"):
+				case strings.Contains(routeUrl, "group/member") && strings.Contains(routeUrl, "start=2"):
+					filename = "../../test/fixtures/users2.json"
+				case (strings.Contains(routeUrl, "group/member") && strings.Contains(routeUrl, "confluence-users")) ||
+					(strings.Contains(routeUrl, client.GroupsListUrlPath) && strings.Contains(routeUrl, "123")):
 					filename = "../../test/fixtures/users0.json"
-				case strings.Contains(routeUrl, client.GroupsListUrlPath) && strings.Contains(routeUrl, "456"):
+				case (strings.Contains(routeUrl, "group/member") && strings.Contains(routeUrl, "system-administrators")) ||
+					(strings.Contains(routeUrl, client.GroupsListUrlPath) && strings.Contains(routeUrl, "456")):
 					filename = "../../test/fixtures/users1.json"
+				case strings.Contains(routeUrl, client.GroupsListUrlPath) && strings.Contains(routeUrl, "start=2"):
+					filename = "../../test/fixtures/groups1.json"
 				case strings.Contains(routeUrl, client.GroupsListUrlPath):
-					filename = "../../test/fixtures/groups.json"
+					filename = "../../test/fixtures/groups0.json"
 				case strings.Contains(routeUrl, client.SpacesListUrlPath) && strings.Contains(routeUrl, "permissions"):
 					filename = "../../test/fixtures/permissions0.json"
 				case strings.Contains(routeUrl, client.SpacesListUrlPath) && strings.Contains(routeUrl, "cursor"):
