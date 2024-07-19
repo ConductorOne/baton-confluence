@@ -13,6 +13,7 @@ import (
 
 const (
 	accountTypeAtlassian = "atlassian" // user account type
+	accountTypeApp       = "app"       // bot account type
 )
 
 var (

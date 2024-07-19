@@ -1,17 +1,18 @@
 package client
 
 type ConfluenceUser struct {
-	AccountId   string
-	AccountType string
-	DisplayName string
-	Email       string
+	AccountId   string `json:"accountId"`
+	AccountType string `json:"accountType"`
+	DisplayName string `json:"displayName"`
+	Email       string `json:"email"`
 }
 
 type confluenceUserList struct {
-	Start   int
-	Limit   int
-	Size    int
-	Results []ConfluenceUser
+	Start   int              `json:"start"`
+	Limit   int              `json:"limit"`
+	Size    int              `json:"size"`
+	Links   ConfluenceLink   `json:"_links"`
+	Results []ConfluenceUser `json:"results"`
 }
 
 type ConfluenceGroup struct {
@@ -21,8 +22,9 @@ type ConfluenceGroup struct {
 }
 
 type confluenceGroupList struct {
-	Start   int
-	Limit   int
-	Size    int
-	Results []ConfluenceGroup
+	Start   int               `json:"start"`
+	Limit   int               `json:"limit"`
+	Size    int               `json:"size"`
+	Links   ConfluenceLink    `json:"_links"`
+	Results []ConfluenceGroup `json:"results"`
 }

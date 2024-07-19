@@ -2,12 +2,13 @@ package connector
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/conductorone/baton-confluence/pkg/connector/client"
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/annotations"
 	"github.com/conductorone/baton-sdk/pkg/pagination"
-	resource "github.com/conductorone/baton-sdk/pkg/types/resource"
+	"github.com/conductorone/baton-sdk/pkg/types/resource"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"go.uber.org/zap"
 )
@@ -35,7 +36,7 @@ func userResource(ctx context.Context, user *client.ConfluenceUser) (*v2.Resourc
 		resource.WithStatus(v2.UserTrait_Status_STATUS_ENABLED),
 	}
 
-	resource, err := resource.NewUserResource(
+	newUserResource, err := resource.NewUserResource(
 		user.DisplayName,
 		resourceTypeUser,
 		user.AccountId,
@@ -45,40 +46,185 @@ func userResource(ctx context.Context, user *client.ConfluenceUser) (*v2.Resourc
 		return nil, err
 	}
 
-	return resource, nil
+	return newUserResource, nil
 }
 
-func (o *userResourceType) List(ctx context.Context, _ *v2.ResourceId, pt *pagination.Token) ([]*v2.Resource, string, annotations.Annotations, error) {
-	l := ctxzap.Extract(ctx)
+// parsePageToken given a marshalled pageToken as a string, return the pageToken
+// bag and the current page number.
+func parsePageToken(
+	pageToken string,
+	resourceID *v2.ResourceId,
+) (
+	*pagination.Bag,
+	string,
+	error,
+) {
+	b := &pagination.Bag{}
+	err := b.Unmarshal(pageToken)
+	if err != nil {
+		return nil, "0", err
+	}
 
-	users, _, err := o.client.GetUsers(ctx, "", ResourcesPageSize)
+	if b.Current() == nil {
+		b.Push(pagination.PageState{
+			ResourceTypeID: resourceID.ResourceType,
+			ResourceID:     resourceID.Resource,
+		})
+	}
+
+	page := b.PageToken()
+	return b, page, nil
+}
+
+func (o *userResourceType) List(
+	ctx context.Context,
+	_ *v2.ResourceId,
+	pToken *pagination.Token,
+) (
+	[]*v2.Resource,
+	string,
+	annotations.Annotations,
+	error,
+) {
+	logger := ctxzap.Extract(ctx)
+	logger.Debug("Starting Users List", zap.String("token", pToken.Token))
+
+	// There is no Confluence Cloud REST API to get all users, so get all groups
+	// and then all members of each group.
+
+	// The second parameter here is "user", which acts as a default value.
+	bag, page, err := parsePageToken(
+		pToken.Token,
+		&v2.ResourceId{ResourceType: resourceTypeUser.Id},
+	)
 	if err != nil {
 		return nil, "", nil, err
 	}
-	rv := make([]*v2.Resource, 0)
-	for _, user := range users {
-		if user.AccountType != accountTypeAtlassian {
-			l.Debug("confluence: user is not of type atlassian", zap.Any("user", user))
-			continue
-		}
 
-		userCopy := user
-		ur, err := userResource(ctx, &userCopy)
+	outputResources := make([]*v2.Resource, 0)
+	var outputAnnotations annotations.Annotations
+	switch bag.ResourceTypeID() {
+	case resourceTypeUser.Id:
+		logger.Debug("Got a user from the bag", zap.String("page", page))
+		if page == "" {
+			page = "0"
+		}
+		// Add a new page of groups
+		groups, nextToken, ratelimitData, err := o.client.GetGroups(
+			ctx,
+			page,
+			ResourcesPageSize,
+		)
+		logger.Debug(
+			"Got groups",
+			zap.Int("len", len(groups)),
+			zap.String("nextToken", nextToken),
+		)
+		outputAnnotations = WithRateLimitAnnotations(ratelimitData)
 		if err != nil {
-			return nil, "", nil, err
+			return nil, "", outputAnnotations, err
 		}
 
-		rv = append(rv, ur)
+		// Push next page to stack. (Short-circuits if token is "".)
+		err = bag.Next(nextToken)
+		if err != nil {
+			return nil, "", outputAnnotations, err
+		}
+
+		for _, group := range groups {
+			logger.Debug(
+				"adding a group to the bag",
+				zap.String("id", group.Id),
+				zap.String("name", group.Name),
+			)
+			bag.Push(
+				pagination.PageState{
+					ResourceTypeID: resourceTypeGroup.Id,
+					ResourceID:     group.Id,
+				},
+			)
+		}
+	case resourceTypeGroup.Id:
+		currentState := bag.Current()
+
+		start := currentState.Token
+		if start == "" {
+			start = "0"
+		}
+		logger.Debug(
+			"Got a group from the bag",
+			zap.String("start", start),
+			zap.String("group_id", currentState.ResourceID),
+		)
+
+		// Get users for this group.
+		users, nextToken, ratelimitData, err := o.client.GetGroupMembers(
+			ctx,
+			start,
+			ResourcesPageSize,
+			currentState.ResourceID,
+		)
+		outputAnnotations = WithRateLimitAnnotations(ratelimitData)
+		if err != nil {
+			return nil, "", outputAnnotations, err
+		}
+
+		// Push next page to stack. (Short-circuits if token is "".)
+		err = bag.Next(nextToken)
+		if err != nil {
+			return nil, "", outputAnnotations, err
+		}
+
+		// Add users to output resources. There will be duplicates across groups.
+		for _, user := range users {
+			if user.AccountType != accountTypeAtlassian {
+				logger.Debug("confluence: user is not of type atlassian", zap.Any("user", user))
+				continue
+			}
+
+			userCopy := user
+			newUserResource, err := userResource(ctx, &userCopy)
+			if err != nil {
+				return nil, "", nil, err
+			}
+
+			outputResources = append(outputResources, newUserResource)
+		}
+	default:
+		return nil, "", nil, fmt.Errorf("unexpected resource type while fetching list of users")
 	}
 
-	return rv, "", nil, nil
+	pageToken, err := bag.Marshal()
+	if err != nil {
+		return nil, "", nil, err
+	}
+
+	return outputResources, pageToken, outputAnnotations, nil
 }
 
-func (o *userResourceType) Entitlements(_ context.Context, _ *v2.Resource, _ *pagination.Token) ([]*v2.Entitlement, string, annotations.Annotations, error) {
+func (o *userResourceType) Entitlements(
+	_ context.Context,
+	_ *v2.Resource,
+	_ *pagination.Token,
+) (
+	[]*v2.Entitlement,
+	string,
+	annotations.Annotations,
+	error,
+) {
 	return nil, "", nil, nil
 }
 
-func (o *userResourceType) Grants(_ context.Context, _ *v2.Resource, _ *pagination.Token) ([]*v2.Grant, string, annotations.Annotations, error) {
+func (o *userResourceType) Grants(
+	_ context.Context,
+	_ *v2.Resource,
+	_ *pagination.Token,
+) (
+	[]*v2.Grant,
+	string,
+	annotations.Annotations,
+	error,
+) {
 	return nil, "", nil, nil
 }
 
