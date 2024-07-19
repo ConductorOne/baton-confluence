@@ -180,6 +180,33 @@ func (o *groupResourceType) Grants(
 	return rv, nextPage, outputAnnotations, nil
 }
 
+func (o *groupResourceType) Grant(
+	ctx context.Context,
+	principal *v2.Resource,
+	entitlement *v2.Entitlement,
+) (annotations.Annotations, error) {
+	ratelimitData, err := o.client.AddUserToGroup(
+		ctx,
+		entitlement.Resource.Id.Resource,
+		principal.Id.Resource,
+	)
+	outputAnnotations := WithRateLimitAnnotations(ratelimitData)
+	return outputAnnotations, err
+}
+
+func (o *groupResourceType) Revoke(
+	ctx context.Context,
+	grant *v2.Grant,
+) (annotations.Annotations, error) {
+	ratelimitData, err := o.client.RemoveUserFromGroup(
+		ctx,
+		grant.Entitlement.Resource.Id.Resource,
+		grant.Principal.Id.Resource,
+	)
+	outputAnnotations := WithRateLimitAnnotations(ratelimitData)
+	return outputAnnotations, err
+}
+
 func groupBuilder(client *client.ConfluenceClient) *groupResourceType {
 	return &groupResourceType{
 		resourceType: resourceTypeGroup,
