@@ -1,0 +1,282 @@
+{
+  "results": [
+    {
+      "id": "081",
+      "principal": {
+        "type": "user",
+        "id": "123"
+      },
+      "operation": {
+        "key": "read",
+        "targetType": "space"
+      }
+    },
+    {
+      "id": "087",
+      "principal": {
+        "type": "user",
+        "id": "123"
+      },
+      "operation": {
+        "key": "create",
+        "targetType": "page"
+      }
+    },
+    {
+      "id": "093",
+      "principal": {
+        "type": "user",
+        "id": "123"
+      },
+      "operation": {
+        "key": "create",
+        "targetType": "attachment"
+      }
+    },
+    {
+      "id": "099",
+      "principal": {
+        "type": "user",
+        "id": "123"
+      },
+      "operation": {
+        "key": "create",
+        "targetType": "comment"
+      }
+    },
+    {
+      "id": "105",
+      "principal": {
+        "type": "user",
+        "id": "123"
+      },
+      "operation": {
+        "key": "create",
+        "targetType": "blogpost"
+      }
+    },
+    {
+      "id": "111",
+      "principal": {
+        "type": "user",
+        "id": "123"
+      },
+      "operation": {
+        "key": "delete",
+        "targetType": "page"
+      }
+    },
+    {
+      "id": "117",
+      "principal": {
+        "type": "user",
+        "id": "123"
+      },
+      "operation": {
+        "key": "delete",
+        "targetType": "attachment"
+      }
+    },
+    {
+      "id": "123",
+      "principal": {
+        "type": "user",
+        "id": "123"
+      },
+      "operation": {
+        "key": "delete",
+        "targetType": "comment"
+      }
+    },
+    {
+      "id": "129",
+      "principal": {
+        "type": "user",
+        "id": "123"
+      },
+      "operation": {
+        "key": "delete",
+        "targetType": "blogpost"
+      }
+    },
+    {
+      "id": "135",
+      "principal": {
+        "type": "user",
+        "id": "123"
+      },
+      "operation": {
+        "key": "administer",
+        "targetType": "space"
+      }
+    },
+    {
+      "id": "212",
+      "principal": {
+        "type": "group",
+        "id": "234"
+      },
+      "operation": {
+        "key": "delete",
+        "targetType": "page"
+      }
+    },
+    {
+      "id": "213",
+      "principal": {
+        "type": "group",
+        "id": "345"
+      },
+      "operation": {
+        "key": "create",
+        "targetType": "blogpost"
+      }
+    },
+    {
+      "id": "214",
+      "principal": {
+        "type": "group",
+        "id": "567"
+      },
+      "operation": {
+        "key": "delete",
+        "targetType": "blogpost"
+      }
+    },
+    {
+      "id": "215",
+      "principal": {
+        "type": "user",
+        "id": "456"
+      },
+      "operation": {
+        "key": "export",
+        "targetType": "space"
+      }
+    },
+    {
+      "id": "216",
+      "principal": {
+        "type": "group",
+        "id": "678"
+      },
+      "operation": {
+        "key": "create",
+        "targetType": "page"
+      }
+    },
+    {
+      "id": "219",
+      "principal": {
+        "type": "group",
+        "id": "789"
+      },
+      "operation": {
+        "key": "create",
+        "targetType": "attachment"
+      }
+    },
+    {
+      "id": "220",
+      "principal": {
+        "type": "user",
+        "id": "456"
+      },
+      "operation": {
+        "key": "delete",
+        "targetType": "page"
+      }
+    },
+    {
+      "id": "222",
+      "principal": {
+        "type": "user",
+        "id": "456"
+      },
+      "operation": {
+        "key": "delete",
+        "targetType": "blogpost"
+      }
+    },
+    {
+      "id": "223",
+      "principal": {
+        "type": "group",
+        "id": "890"
+      },
+      "operation": {
+        "key": "export",
+        "targetType": "space"
+      }
+    },
+    {
+      "id": "224",
+      "principal": {
+        "type": "user",
+        "id": "456"
+      },
+      "operation": {
+        "key": "delete",
+        "targetType": "space"
+      }
+    },
+    {
+      "id": "225",
+      "principal": {
+        "type": "group",
+        "id": "456"
+      },
+      "operation": {
+        "key": "administer",
+        "targetType": "space"
+      }
+    },
+    {
+      "id": "226",
+      "principal": {
+        "type": "group",
+        "id": "456"
+      },
+      "operation": {
+        "key": "create",
+        "targetType": "blogpost"
+      }
+    },
+    {
+      "id": "227",
+      "principal": {
+        "type": "group",
+        "id": "123"
+      },
+      "operation": {
+        "key": "delete",
+        "targetType": "space"
+      }
+    },
+    {
+      "id": "228",
+      "principal": {
+        "type": "user",
+        "id": "456"
+      },
+      "operation": {
+        "key": "create",
+        "targetType": "comment"
+      }
+    },
+    {
+      "id": "229",
+      "principal": {
+        "type": "user",
+        "id": "456"
+      },
+      "operation": {
+        "key": "delete",
+        "targetType": "comment"
+      }
+    }
+  ],
+  "_links": {
+    "base": "https://conductorone.atlassian.net/wiki"
+  }
+}

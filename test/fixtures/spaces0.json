@@ -1,0 +1,23 @@
+{
+  "results": [
+    {
+      "createdAt": "2000-01-01T01:02:03.456Z",
+      "authorId": "123",
+      "homepageId": "678",
+      "icon": null,
+      "name": "Product Management",
+      "key": "PM",
+      "id": "678",
+      "type": "global",
+      "description": null,
+      "status": "current",
+      "_links": {
+        "webui": "/spaces/PM"
+      }
+    }
+  ],
+  "_links": {
+    "next": "/wiki/api/v2/spaces?cursor=cursor",
+    "base": "https://conductorone.atlassian.net/wiki"
+  }
+}
