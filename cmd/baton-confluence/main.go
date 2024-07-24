@@ -24,10 +24,7 @@ func main() {
 		ctx,
 		"baton-confluence",
 		getConnector,
-		field.Configuration{
-			Fields: configurationFields,
-		},
-		nil,
+		configuration,
 	)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
@@ -45,10 +42,6 @@ func main() {
 
 func getConnector(ctx context.Context, v *viper.Viper) (types.ConnectorServer, error) {
 	l := ctxzap.Extract(ctx)
-	if err := validateConfig(ctx, v); err != nil {
-		return nil, err
-	}
-
 	cb, err := connector.New(
 		ctx,
 		v.GetString(apiKeyField.FieldName),
@@ -59,6 +52,12 @@ func getConnector(ctx context.Context, v *viper.Viper) (types.ConnectorServer, e
 		l.Error("error creating connector", zap.Error(err))
 		return nil, err
 	}
+
+	err = field.Validate(configuration, v)
+	if err != nil {
+		return nil, err
+	}
+
 	connector, err := connectorbuilder.NewConnector(ctx, cb)
 	if err != nil {
 		l.Error("error creating connector", zap.Error(err))

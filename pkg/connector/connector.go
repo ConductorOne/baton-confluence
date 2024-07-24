@@ -36,6 +36,7 @@ type Config struct {
 	ApiKey   string
 	Domain   string
 }
+
 type Confluence struct {
 	client   *client.ConfluenceClient
 	domain   string
