@@ -1,5 +1,10 @@
 package client
 
+type ConfluenceLink struct {
+	Base string `json:"base"`
+	Next string `json:"next,omitempty"`
+}
+
 type ConfluenceUser struct {
 	AccountId   string `json:"accountId"`
 	AccountType string `json:"accountType"`
@@ -27,4 +32,8 @@ type confluenceGroupList struct {
 	Size    int               `json:"size"`
 	Links   ConfluenceLink    `json:"_links"`
 	Results []ConfluenceGroup `json:"results"`
+}
+
+type AddUserToGroupRequestBody struct {
+	AccountId string `json:"accountId"`
 }

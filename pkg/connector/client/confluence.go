@@ -15,8 +15,6 @@ import (
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/helpers"
 	"github.com/conductorone/baton-sdk/pkg/uhttp"
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
-	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -305,34 +303,6 @@ func (c *ConfluenceClient) makeRequest(
 	}
 }
 
-// genURLWithPaginationCursor uses Confluence Cloud's REST API v2 pagination scheme.
-func (c *ConfluenceClient) genURLWithPaginationCursor(
-	path string,
-	pageSize int,
-	paginationCursor string,
-) (*url.URL, error) {
-	parsed, err := url.Parse(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse request path '%s': %w", path, err)
-	}
-
-	parsedUrl := c.apiBase.ResolveReference(parsed)
-
-	maximum := pageSize
-	if maximum == 0 || maximum > maxResults {
-		maximum = maxResults
-	}
-
-	query := parsedUrl.Query()
-	if paginationCursor != "" {
-		query.Set("cursor", paginationCursor)
-	}
-	query.Set("limit", strconv.Itoa(maximum))
-	parsedUrl.RawQuery = query.Encode()
-
-	return parsedUrl, nil
-}
-
 // genURLNonPaginated adds the given URL path to the API base URL.
 func (c *ConfluenceClient) genURLNonPaginated(path string) (*url.URL, error) {
 	parsed, err := url.Parse(path)
@@ -384,17 +354,6 @@ func strToInt(s string) int {
 	}
 	return i
 }
-
-// extractPaginationCursor returns the query parameters from the "next" link in
-// the list response.
-func extractPaginationCursor(links ConfluenceLink) string {
-	parsedUrl, err := url.Parse(links.Next)
-	if err != nil {
-		return ""
-	}
-	return parsedUrl.Query().Get("cursor")
-}
-
 
 // WithConfluenceRatelimitData Per the docs: transient 5XX errors should be
 // treated as 429/too-many-requests if they have a retry header. 503 errors were

@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/conductorone/baton-confluence/pkg/connector/client"
-	"github.com/conductorone/baton-sdk/pb/c1/connector/v2"
+	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/annotations"
 	"github.com/conductorone/baton-sdk/pkg/pagination"
 	"github.com/conductorone/baton-sdk/pkg/types/entitlement"
