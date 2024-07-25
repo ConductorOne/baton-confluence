@@ -574,7 +574,7 @@ func (c *ConfluenceClient) findSpacePermission(
 				permission.Principal.Type == principalType &&
 				permission.Operation.Key == key &&
 				permission.Operation.TargetType == target {
-				return &permission, nil, nil
+				return &permission, ratelimitData, nil
 			}
 		}
 		cursor = extractPaginationCursor(response.Links)
