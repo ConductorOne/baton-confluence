@@ -18,6 +18,17 @@ const (
 	maxResults       = 50
 	minRatelimitWait = 1 * time.Second                        // Minimum time to wait after a request was ratelimited before trying again
 	maxRatelimitWait = (2 * time.Minute) + (30 * time.Second) // Maximum time to wait after a request was ratelimited before erroring
+
+	currentUserUrlPath            = "/wiki/rest/api/user/current"
+	GroupsListUrlPath             = "/wiki/rest/api/group"
+	getUsersByGroupIdUrlPath      = "/wiki/rest/api/group/%s/membersByGroupId"
+	addUsersToGroupUrlPath        = "/wiki/rest/api/group/userByGroupId?groupId=%s"
+	removeUsersFromGroupUrlPath   = "/wiki/rest/api/group/userByGroupId?groupId=%s&accountId=%s"
+	spacePermissionsCreateUrlPath = "/wiki/rest/api/space/%s/permissions"
+	spacePermissionsUpdateUrlPath = "/wiki/rest/api/space/%s/permissions/%s"
+	SpacesListUrlPath             = "/wiki/api/v2/spaces"
+	spacesGetUrlPath              = "/wiki/api/v2/spaces/%s"
+	SpacePermissionsListUrlPath   = "/wiki/api/v2/spaces/%s/permissions"
 )
 
 type RequestError struct {
@@ -37,8 +48,25 @@ type ConfluenceClient struct {
 	apiBase    *url.URL
 }
 
+// fallBackToHTTPS checks to domain and tacks on "https://" if no scheme is
+// specified. This exists so that a user can override the scheme by including it
+// in the passed "domain-url" config.
+func fallBackToHTTPS(domain string) (*url.URL, error) {
+	parsed, err := url.Parse(domain)
+	if err != nil {
+		return nil, err
+	}
+	if parsed.Scheme == "" {
+		parsed, err = url.Parse(fmt.Sprintf("https://%s", domain))
+		if err != nil {
+			return nil, err
+		}
+	}
+	return parsed, nil
+}
+
 func NewConfluenceClient(ctx context.Context, user, apiKey, domain string) (*ConfluenceClient, error) {
-	apiBase, err := url.Parse(fmt.Sprintf("https://%s/wiki/rest/api/", domain))
+	apiBase, err := fallBackToHTTPS(fmt.Sprintf("%s/wiki/rest/api/", domain))
 	if err != nil {
 		return nil, err
 	}

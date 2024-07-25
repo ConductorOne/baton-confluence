@@ -1,0 +1,56 @@
+{
+  "results": [
+    {
+      "type": "known",
+      "accountId": "234",
+      "accountType": "atlassian",
+      "email": "marcos.gaeta@conductorone.com",
+      "publicName": "Marcos Gaeta",
+      "profilePicture": {
+        "path": "/wiki/aa-avatar/234",
+        "width": 48,
+        "height": 48,
+        "isDefault": false
+      },
+      "displayName": "Marcos Gaeta",
+      "isExternalCollaborator": false,
+      "_expandable": {
+        "operations": "",
+        "personalSpace": ""
+      },
+      "_links": {
+        "self": "https://conductorone.atlassian.net/wiki/rest/api/user?accountId=234"
+      }
+    },
+    {
+      "type": "known",
+      "accountId": "789",
+      "accountType": "atlassian",
+      "email": "other.user@conductorone.com",
+      "publicName": "Other User",
+      "profilePicture": {
+        "path": "/wiki/aa-avatar/789",
+        "width": 48,
+        "height": 48,
+        "isDefault": false
+      },
+      "displayName": "Other User",
+      "isExternalCollaborator": false,
+      "_expandable": {
+        "operations": "",
+        "personalSpace": ""
+      },
+      "_links": {
+        "self": "https://conductorone.atlassian.net/wiki/rest/api/user?accountId=789"
+      }
+    }
+  ],
+  "start": 0,
+  "limit": 200,
+  "size": 2,
+  "_links": {
+    "base": "https://conductorone.atlassian.net/wiki",
+    "context": "/wiki",
+    "self": "https://conductorone.atlassian.net/wiki/rest/api/group/456/membersByGroupId"
+  }
+}

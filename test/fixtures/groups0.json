@@ -1,0 +1,28 @@
+{
+  "results": [
+    {
+      "type": "group",
+      "name": "confluence-users",
+      "id": "123",
+      "_links": {
+        "self": "https://conductorone.atlassian.net/wiki/rest/experimental/group/confluence-users"
+      }
+    },
+    {
+      "type": "group",
+      "name": "system-administrators",
+      "id": "456",
+      "_links": {
+        "self": "https://conductorone.atlassian.net/wiki/rest/experimental/group/system-administrators"
+      }
+    }
+  ],
+  "start": 0,
+  "limit": 200,
+  "size": 2,
+  "_links": {
+    "base": "https://conductorone.atlassian.net/wiki",
+    "context": "/wiki",
+    "self": "https://conductorone.atlassian.net/wiki/rest/api/group"
+  }
+}
