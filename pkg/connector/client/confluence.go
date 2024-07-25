@@ -5,20 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
 	"net/url"
-	"slices"
 	"strconv"
 	"strings"
 
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
-	"github.com/conductorone/baton-sdk/pkg/helpers"
 	"github.com/conductorone/baton-sdk/pkg/uhttp"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 const (
@@ -79,7 +73,7 @@ func NewConfluenceClient(ctx context.Context, user, apiKey, domain string) (*Con
 }
 
 func (c *ConfluenceClient) Verify(ctx context.Context) error {
-	currentUserUrl, err := c.genURLNonPaginated(CurrentUserUrlPath)
+	currentUserUrl, err := c.parse(CurrentUserUrlPath)
 	if err != nil {
 		return err
 	}
@@ -112,7 +106,10 @@ func (c *ConfluenceClient) GetGroups(
 	*v2.RateLimitDescription,
 	error,
 ) {
-	groupsUrl, err := c.genURL(pageToken, pageSize, GroupsListUrlPath)
+	groupsUrl, err := c.parse(
+		GroupsListUrlPath,
+		withLimitAndOffset(pageToken, pageSize),
+	)
 	if err != nil {
 		return nil, "", nil, err
 	}
@@ -178,11 +175,9 @@ func (c *ConfluenceClient) AddUserToGroup(
 	accountID string,
 	groupId string,
 ) (*v2.RateLimitDescription, error) {
-	getUsersUrl, err := c.genURLNonPaginated(
-		fmt.Sprintf(
-			addUsersToGroupUrlPath,
-			groupId,
-		),
+	getUsersUrl, err := c.parse(
+		groupBaseUrlPath,
+		withQueryParameters(map[string]interface{}{"groupId": groupId}),
 	)
 	if err != nil {
 		return nil, err
@@ -210,12 +205,12 @@ func (c *ConfluenceClient) RemoveUserFromGroup(
 	accountID string,
 	groupId string,
 ) (*v2.RateLimitDescription, error) {
-	getUsersUrl, err := c.genURLNonPaginated(
-		fmt.Sprintf(
-			removeUsersFromGroupUrlPath,
-			groupId,
-			accountID,
-		),
+	getUsersUrl, err := c.parse(
+		groupBaseUrlPath,
+		withQueryParameters(map[string]interface{}{
+			"groupId":   groupId,
+			"accountId": accountID,
+		}),
 	)
 	if err != nil {
 		return nil, err
@@ -226,112 +221,6 @@ func (c *ConfluenceClient) RemoveUserFromGroup(
 		return ratelimitData, err
 	}
 	return ratelimitData, nil
-}
-
-func (c *ConfluenceClient) get(
-	ctx context.Context,
-	getUrl *url.URL,
-	target interface{},
-) (*v2.RateLimitDescription, error) {
-	return c.makeRequest(ctx, getUrl, target, http.MethodGet, nil)
-}
-
-func (c *ConfluenceClient) post(
-	ctx context.Context,
-	postUrl *url.URL,
-	target interface{},
-	requestBody io.Reader,
-) (*v2.RateLimitDescription, error) {
-	return c.makeRequest(ctx, postUrl, target, http.MethodPost, requestBody)
-}
-
-func (c *ConfluenceClient) delete(
-	ctx context.Context,
-	deleteUrl *url.URL,
-	target interface{},
-) (*v2.RateLimitDescription, error) {
-	return c.makeRequest(ctx, deleteUrl, target, http.MethodDelete, nil)
-}
-
-func (c *ConfluenceClient) makeRequest(
-	ctx context.Context,
-	url *url.URL,
-	target interface{},
-	method string,
-	requestBody io.Reader,
-) (*v2.RateLimitDescription, error) {
-	req, err := http.NewRequestWithContext(ctx, method, url.String(), requestBody)
-	if err != nil {
-		return nil, err
-	}
-
-	req.SetBasicAuth(c.user, c.apiKey)
-
-	ratelimitData := v2.RateLimitDescription{}
-
-	response, err := c.wrapper.Do(
-		req,
-		WithConfluenceRatelimitData(&ratelimitData),
-		uhttp.WithJSONResponse(target),
-	)
-	if err == nil {
-		return &ratelimitData, nil
-	}
-	if response == nil {
-		return nil, err
-	}
-	defer response.Body.Close()
-
-	// If we get ratelimit data back (e.g. the "Retry-After" header) or a
-	// "ratelimit-like" status code, then return a recoverable gRPC code.
-	if isRatelimited(ratelimitData.Status, response.StatusCode) {
-		return &ratelimitData, status.Error(codes.Unavailable, response.Status)
-	}
-
-	// If it's some other error, it is unrecoverable.
-	responseBody, err := io.ReadAll(response.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	return nil, &RequestError{
-		URL:    url,
-		Status: response.StatusCode,
-		Body:   string(responseBody),
-	}
-}
-
-// genURLNonPaginated adds the given URL path to the API base URL.
-func (c *ConfluenceClient) genURLNonPaginated(path string) (*url.URL, error) {
-	parsed, err := url.Parse(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse request path '%s': %w", path, err)
-	}
-	parsedUrl := c.apiBase.ResolveReference(parsed)
-	return parsedUrl, nil
-}
-
-// genURL adds `start` and `limit` query parameters to a URL. This pagination
-// parameter is only used by the v1 REST API.
-func (c *ConfluenceClient) genURL(pageToken string, pageSize int, path string) (*url.URL, error) {
-	parsed, err := url.Parse(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse request path '%s': %w", path, err)
-	}
-
-	parsedUrl := c.apiBase.ResolveReference(parsed)
-
-	maximum := pageSize
-	if maximum == 0 || maximum > maxResults {
-		maximum = maxResults
-	}
-
-	query := parsedUrl.Query()
-	query.Set("start", pageToken)
-	query.Set("limit", strconv.Itoa(maximum))
-	parsedUrl.RawQuery = query.Encode()
-
-	return parsedUrl, nil
 }
 
 func incToken(pageToken string, count int) string {
@@ -364,10 +253,9 @@ func (c *ConfluenceClient) GetSpaces(
 	*v2.RateLimitDescription,
 	error,
 ) {
-	spacesListUrl, err := c.genURLWithPaginationCursor(
+	spacesListUrl, err := c.parse(
 		SpacesListUrlPath,
-		pageSize,
-		paginationCursor,
+		withPaginationCursor(pageSize, paginationCursor),
 	)
 	if err != nil {
 		return nil, "", nil, err
@@ -399,10 +287,10 @@ func (c *ConfluenceClient) ConfluenceSpaceOperations(
 	logger := ctxzap.Extract(ctx)
 	logger.Debug("fetching space", zap.String("spaceId", spaceId))
 
-	spaceUrl, err := c.genURLWithPaginationCursor(
-		fmt.Sprintf(spacesGetUrlPath+"?include-operations=1", spaceId),
-		pageSize,
-		cursor,
+	spaceUrl, err := c.parse(
+		fmt.Sprintf(spacesGetUrlPath, spaceId),
+		withQueryParameters(map[string]interface{}{"include-operations": true}),
+		withPaginationCursor(pageSize, cursor),
 	)
 
 	if err != nil {
@@ -437,10 +325,9 @@ func (c *ConfluenceClient) GetSpacePermissions(
 	*v2.RateLimitDescription,
 	error,
 ) {
-	spacePermissionsListUrl, err := c.genURLWithPaginationCursor(
+	spacePermissionsListUrl, err := c.parse(
 		fmt.Sprintf(SpacePermissionsListUrlPath, spaceId),
-		pageSize,
-		pageToken,
+		withPaginationCursor(pageSize, pageToken),
 	)
 	if err != nil {
 		return nil, "", nil, err
@@ -487,7 +374,7 @@ func (c *ConfluenceClient) AddSpacePermission(
 	*v2.RateLimitDescription,
 	error,
 ) {
-	spacePermissionsListUrl, err := c.genURLNonPaginated(
+	spacePermissionsListUrl, err := c.parse(
 		fmt.Sprintf(spacePermissionsCreateUrlPath, spaceName),
 	)
 	if err != nil {
@@ -548,13 +435,12 @@ func (c *ConfluenceClient) findSpacePermission(
 	// We need to list _all_ permissions in order to figure out the permission's ID.
 	cursor := ""
 	for {
-		listPermissionsUrl, err := c.genURLWithPaginationCursor(
+		listPermissionsUrl, err := c.parse(
 			fmt.Sprintf(
 				SpacePermissionsListUrlPath,
 				spaceId,
 			),
-			maxResults,
-			cursor,
+			withPaginationCursor(maxResults, cursor),
 		)
 		if err != nil {
 			return nil, nil, err
@@ -596,7 +482,7 @@ func (c *ConfluenceClient) findSpace(
 	*v2.RateLimitDescription,
 	error,
 ) {
-	getSpaceUrl, err := c.genURLNonPaginated(
+	getSpaceUrl, err := c.parse(
 		fmt.Sprintf(
 			spacesGetUrlPath,
 			spaceId,
@@ -647,7 +533,7 @@ func (c *ConfluenceClient) RemoveSpacePermission(
 		return ratelimitData, err
 	}
 
-	deletePermissionUrl, err := c.genURLNonPaginated(
+	deletePermissionUrl, err := c.parse(
 		fmt.Sprintf(
 			spacePermissionsUpdateUrlPath,
 			space.Key,
@@ -679,41 +565,6 @@ func extractPaginationCursor(links ConfluenceLink) string {
 		return ""
 	}
 	return parsedUrl.Query().Get("cursor")
-}
-
-// WithConfluenceRatelimitData Per the docs: transient 5XX errors should be
-// treated as 429/too-many-requests if they have a retry header. 503 errors were
-// the only ones explicitly called out, but I guess it's possible for others too
-// https://developer.atlassian.com/cloud/confluence/rate-limiting/
-func WithConfluenceRatelimitData(resource *v2.RateLimitDescription) uhttp.DoOption {
-	return func(response *uhttp.WrapperResponse) error {
-		rateLimitData, err := helpers.ExtractRateLimitData(response.StatusCode, &response.Header)
-		if err != nil {
-			return err
-		}
-		resource = rateLimitData
-		return nil
-	}
-}
-
-func isRatelimited(
-	ratelimitStatus v2.RateLimitDescription_Status,
-	statusCode int,
-) bool {
-	return slices.Contains(
-		[]v2.RateLimitDescription_Status{
-			v2.RateLimitDescription_STATUS_OVERLIMIT,
-			v2.RateLimitDescription_STATUS_ERROR,
-		},
-		ratelimitStatus,
-	) || slices.Contains(
-		[]int{
-			http.StatusTooManyRequests,
-			http.StatusGatewayTimeout,
-			http.StatusServiceUnavailable,
-		},
-		statusCode,
-	)
 }
 
 // GetUsersFromSearch There are no official, documented ways to get lists of
