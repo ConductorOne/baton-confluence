@@ -36,12 +36,64 @@ baton resources
 # Data Model
 
 `baton-confluence` will pull down information about the following Confluence resources:
+- Spaces & Space Permissions
 - Groups
 - Users
 
+## Space Permissions
+Every Confluence space has its own set of permissions which determine what 
+people can do in the space.
+
+These permissions are Entitlements for Spaces and are represented as a pair of
+"operation" and "target".
+
+Valid targets include:
+- `application`
+- `attachment`
+- `blogpost`
+- `comment`
+- `database`
+- `embed`
+- `page`
+- `space`
+- `userProfile`
+- `whiteboard`
+
+Valid operations include:
+- `administer`
+- `archive`
+- `copy`
+- `create`
+- `create_space`
+- `delete`
+- `export`
+- `move`
+- `purge`
+- `purge_version`
+- `read`
+- `restore`
+- `restrict_content`
+- `update`
+
+Not all operation-target pairs are valid, but here are some examples of valid ones:
+- `administer-space`
+- `create-attachment`
+- `create-blogpost`
+- `create-comment`
+- `create-page`
+- `delete-space`
+- `export-space`
+- `read-space`
+- `update-space`
+
+See [Space Permissions Overview documentation page](https://confluence.atlassian.com/doc/space-permissions-overview-139521.html).
+
 # Contributing, Support and Issues
 
-We started Baton because we were tired of taking screenshots and manually building spreadsheets. We welcome contributions, and ideas, no matter how small -- our goal is to make identity and permissions sprawl less painful for everyone. If you have questions, problems, or ideas: Please open a Github Issue!
+We started Baton because we were tired of taking screenshots and manually 
+building spreadsheets. We welcome contributions, and ideas, no matter how small 
+-- our goal is to make identity and permissions sprawl less painful for 
+everyone. If you have questions, problems, or ideas: Please open a GitHub Issue!
 
 See [CONTRIBUTING.md](https://github.com/ConductorOne/baton/blob/main/CONTRIBUTING.md) for more details.
 
@@ -73,5 +125,4 @@ Flags:
   -v, --version                version for baton-confluence
 
 Use "baton-confluence [command] --help" for more information about a command.
-
 ```
