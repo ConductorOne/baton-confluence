@@ -397,6 +397,9 @@ func (c *ConfluenceClient) GetUsersFromSearch(
 	getUsersUrl, err := c.parse(
 		SearchUrlPath,
 		withLimitAndOffset(pageToken, pageSize),
+		withQueryParameters(map[string]interface{}{
+			"cql": "type=user",
+		}),
 	)
 	if err != nil {
 		return nil, "", nil, err
