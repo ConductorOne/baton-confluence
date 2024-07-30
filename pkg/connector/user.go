@@ -77,6 +77,9 @@ func parsePageToken(
 	if size == 0 {
 		size = ResourcesPageSize
 	}
+	if page == "" {
+		page = "0"
+	}
 	return b, page, size, nil
 }
 
