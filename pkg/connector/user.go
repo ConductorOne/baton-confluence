@@ -97,6 +97,9 @@ func (o *userResourceType) List(
 		pToken,
 		&v2.ResourceId{ResourceType: resourceTypeUser.Id},
 	)
+	if err != nil {
+		return nil, "", nil, err
+	}
 
 	users, nextToken, ratelimitData, err := o.client.GetUsersFromSearch(ctx, page, size)
 	outputAnnotations := WithRateLimitAnnotations(ratelimitData)

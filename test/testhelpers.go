@@ -76,7 +76,6 @@ func FixturesServer() *httptest.Server {
 				default:
 					// This should never happen in tests.
 					panic(fmt.Errorf("bad url: %s", routeUrl))
-					return
 				}
 				data, _ := os.ReadFile(filename)
 				_, err := writer.Write(data)

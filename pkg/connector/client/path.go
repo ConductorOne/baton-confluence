@@ -63,8 +63,8 @@ func withLimitAndOffset(pageToken string, pageSize int) Option {
 	})
 }
 
-// withPaginationCursor uses Confluence Cloud's REST API v2 pagination scheme.
-func withPaginationCursor(
+// WithPaginationCursor uses Confluence Cloud's REST API v2 pagination scheme.
+func WithPaginationCursor(
 	pageSize int,
 	paginationCursor string,
 ) Option {
