@@ -15,8 +15,13 @@
         },
         "displayName": "Marcos Gaeta",
         "isExternalCollaborator": false,
+        "operations": [
+          {
+            "targetType": "application",
+            "operation": "use"
+          }
+        ],
         "_expandable": {
-          "operations": "",
           "personalSpace": ""
         },
         "_links": {
@@ -39,12 +44,41 @@
         },
         "displayName": "Robot",
         "isExternalCollaborator": false,
+        "operations": [
+          {
+            "targetType": "application",
+            "operation": "use"
+          }
+        ],
         "_expandable": {
-          "operations": "",
           "personalSpace": ""
         },
         "_links": {
           "self": "https://conductorone.atlassian.net/wiki/rest/api/user?accountId=345"
+        }
+      }
+    },
+    {
+      "user": {
+        "type": "known",
+        "accountId": "321",
+        "accountType": "atlassian",
+        "email": "deactivated@conductorone.com",
+        "publicName": "Deactivated (Unlicensed)",
+        "profilePicture": {
+          "path": "/wiki/aa-avatar/321",
+          "width": 48,
+          "height": 48,
+          "isDefault": false
+        },
+        "displayName": "Deactivated",
+        "isExternalCollaborator": false,
+        "operations": [],
+        "_expandable": {
+          "personalSpace": ""
+        },
+        "_links": {
+          "self": "https://conductorone.atlassian.net/wiki/rest/api/user?accountId=321"
         }
       }
     }

@@ -1,8 +1,13 @@
 package connector
 
 import (
+	"context"
+
+	"github.com/conductorone/baton-confluence/pkg/connector/client"
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/annotations"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
+	"go.uber.org/zap"
 )
 
 const ResourcesPageSize = 100
@@ -22,4 +27,18 @@ func WithRateLimitAnnotations(
 	}
 
 	return outputAnnotations
+}
+
+// shouldIncludeUser only include extant, human users.
+func shouldIncludeUser(ctx context.Context, user client.ConfluenceUser) bool {
+	logger := ctxzap.Extract(ctx)
+	if user.AccountType != accountTypeAtlassian {
+		logger.Debug("confluence: user is not of type atlassian", zap.Any("user", user))
+		return false
+	}
+	if len(user.Operations) == 0 {
+		logger.Debug("confluence: user is deactivated (Unlicensed)", zap.Any("user", user))
+		return false
+	}
+	return true
 }

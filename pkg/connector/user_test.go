@@ -14,7 +14,7 @@ import (
 func TestUsersList(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("should get users, using pagination, ignoring robots", func(t *testing.T) {
+	t.Run("should get users, using pagination, ignoring robots & deactivated", func(t *testing.T) {
 		server := test.FixturesServer()
 		defer server.Close()
 

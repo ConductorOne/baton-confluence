@@ -111,8 +111,7 @@ func (o *userResourceType) List(
 	}
 	rv := make([]*v2.Resource, 0)
 	for _, user := range users {
-		if user.AccountType != accountTypeAtlassian {
-			logger.Debug("confluence: user is not of type atlassian", zap.Any("user", user))
+		if !shouldIncludeUser(ctx, user) {
 			continue
 		}
 

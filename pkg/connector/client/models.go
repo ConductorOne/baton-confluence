@@ -6,10 +6,16 @@ type ConfluenceLink struct {
 }
 
 type ConfluenceUser struct {
-	AccountId   string `json:"accountId"`
-	AccountType string `json:"accountType"`
-	DisplayName string `json:"displayName"`
-	Email       string `json:"email,omitempty"`
+	AccountId   string                `json:"accountId"`
+	AccountType string                `json:"accountType"`
+	DisplayName string                `json:"displayName"`
+	Email       string                `json:"email,omitempty"`
+	Operations  []ConfluenceOperation `json:"operations,omitempty"`
+}
+
+type ConfluenceOperation struct {
+	Operation  string `json:"operation"`
+	TargetType string `json:"targetType"`
 }
 
 type confluenceUserList struct {

@@ -11,8 +11,6 @@ import (
 	"github.com/conductorone/baton-sdk/pkg/types/entitlement"
 	"github.com/conductorone/baton-sdk/pkg/types/grant"
 	"github.com/conductorone/baton-sdk/pkg/types/resource"
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
-	"go.uber.org/zap"
 )
 
 const (
@@ -133,7 +131,6 @@ func (o *groupResourceType) Grants(
 	annotations.Annotations,
 	error,
 ) {
-	l := ctxzap.Extract(ctx)
 	bag := &pagination.Bag{}
 	err := bag.Unmarshal(pt.Token)
 	if err != nil {
@@ -158,8 +155,7 @@ func (o *groupResourceType) Grants(
 
 	var rv []*v2.Grant
 	for _, user := range users {
-		if user.AccountType != accountTypeAtlassian {
-			l.Debug("confluence: user is not of type atlassian", zap.Any("user", user))
+		if !shouldIncludeUser(ctx, user) {
 			continue
 		}
 

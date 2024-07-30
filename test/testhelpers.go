@@ -51,7 +51,7 @@ func FixturesServer() *httptest.Server {
 				routeUrl := request.URL.String()
 				switch {
 				case strings.Contains(routeUrl, "group/member") && strings.Contains(routeUrl, "start=2") ||
-					(strings.Contains(routeUrl, client.SearchUrlPath) && strings.Contains(routeUrl, "start=4")):
+					(strings.Contains(routeUrl, client.SearchUrlPath) && strings.Contains(routeUrl, "start=5")):
 					filename = "../../test/fixtures/blank.json"
 				case (strings.Contains(routeUrl, "group/member") && strings.Contains(routeUrl, "confluence-users")) ||
 					(strings.Contains(routeUrl, client.GroupsListUrlPath) && strings.Contains(routeUrl, "123")):
@@ -71,7 +71,7 @@ func FixturesServer() *httptest.Server {
 					filename = "../../test/fixtures/spaces0.json"
 				case strings.Contains(routeUrl, client.SearchUrlPath) && strings.Contains(routeUrl, "start=0"):
 					filename = "../../test/fixtures/search0.json"
-				case strings.Contains(routeUrl, client.SearchUrlPath) && strings.Contains(routeUrl, "start=2"):
+				case strings.Contains(routeUrl, client.SearchUrlPath) && strings.Contains(routeUrl, "start=3"):
 					filename = "../../test/fixtures/search1.json"
 				default:
 					// This should never happen in tests.

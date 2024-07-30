@@ -15,8 +15,13 @@
         },
         "displayName": "Marcos Gaeta",
         "isExternalCollaborator": false,
+        "operations": [
+          {
+            "targetType": "application",
+            "operation": "use"
+          }
+        ],
         "_expandable": {
-          "operations": "",
           "personalSpace": ""
         },
         "_links": {
@@ -39,8 +44,13 @@
         },
         "displayName": "Other User",
         "isExternalCollaborator": false,
+        "operations": [
+          {
+            "targetType": "application",
+            "operation": "use"
+          }
+        ],
         "_expandable": {
-          "operations": "",
           "personalSpace": ""
         },
         "_links": {

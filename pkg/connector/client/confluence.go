@@ -143,7 +143,13 @@ func (c *ConfluenceClient) GetGroupMembers(
 	*v2.RateLimitDescription,
 	error,
 ) {
-	getUsersUrl, err := c.genURL(pageToken, pageSize, fmt.Sprintf(getUsersByGroupIdUrlPath, groupId))
+	getUsersUrl, err := c.parse(
+		fmt.Sprintf(getUsersByGroupIdUrlPath, groupId),
+		withLimitAndOffset(pageToken, pageSize),
+		withQueryParameters(map[string]interface{}{
+			"expand": "operations",
+		}),
+	)
 	if err != nil {
 		return nil, "", nil, err
 	}
