@@ -9,7 +9,7 @@ type ConfluenceUser struct {
 	AccountId   string `json:"accountId"`
 	AccountType string `json:"accountType"`
 	DisplayName string `json:"displayName"`
-	Email       string `json:"email"`
+	Email       string `json:"email,omitempty"`
 }
 
 type confluenceUserList struct {
@@ -18,6 +18,21 @@ type confluenceUserList struct {
 	Size    int              `json:"size"`
 	Links   ConfluenceLink   `json:"_links"`
 	Results []ConfluenceUser `json:"results"`
+}
+
+type ConfluenceSearch struct {
+	EntityType string         `json:"entityType"`
+	Score      float64        `json:"score"`
+	Title      string         `json:"title"`
+	User       ConfluenceUser `json:"user"`
+}
+
+type ConfluenceSearchList struct {
+	Start     int                `json:"start"`
+	Limit     int                `json:"limit"`
+	TotalSize int                `json:"totalSize"`
+	Size      int                `json:"size"`
+	Results   []ConfluenceSearch `json:"results"`
 }
 
 type ConfluenceGroup struct {

@@ -20,17 +20,7 @@ import (
 )
 
 const (
-	maxResults                    = 50
-	currentUserUrlPath            = "/wiki/rest/api/user/current"
-	GroupsListUrlPath             = "/wiki/rest/api/group"
-	getUsersByGroupIdUrlPath      = "/wiki/rest/api/group/%s/membersByGroupId"
-	addUsersToGroupUrlPath        = "/wiki/rest/api/group/userByGroupId?groupId=%s"
-	removeUsersFromGroupUrlPath   = "/wiki/rest/api/group/userByGroupId?groupId=%s&accountId=%s"
-	spacePermissionsCreateUrlPath = "/wiki/rest/api/space/%s/permissions"
-	spacePermissionsUpdateUrlPath = "/wiki/rest/api/space/%s/permissions/%s"
-	SpacesListUrlPath             = "/wiki/api/v2/spaces"
-	spacesGetUrlPath              = "/wiki/api/v2/spaces/%s"
-	SpacePermissionsListUrlPath   = "/wiki/api/v2/spaces/%s/permissions"
+	maxResults = 50
 )
 
 type RequestError struct {
@@ -87,7 +77,7 @@ func NewConfluenceClient(ctx context.Context, user, apiKey, domain string) (*Con
 }
 
 func (c *ConfluenceClient) Verify(ctx context.Context) error {
-	currentUserUrl, err := c.genURLNonPaginated(currentUserUrlPath)
+	currentUserUrl, err := c.genURLNonPaginated(CurrentUserUrlPath)
 	if err != nil {
 		return err
 	}
@@ -388,4 +378,48 @@ func isRatelimited(
 		},
 		statusCode,
 	)
+}
+
+// GetUsersFromSearch There are no official, documented ways to get lists of
+// users in Confluence. One way to get users is to issue a CQL search query with
+// no conditions. The documentation mentions that queries return "up to 10k"
+// users. So that may end up being a limitation of this approach.
+func (c *ConfluenceClient) GetUsersFromSearch(
+	ctx context.Context,
+	pageToken string,
+	pageSize int,
+) (
+	[]ConfluenceUser,
+	string,
+	*v2.RateLimitDescription,
+	error,
+) {
+	getUsersUrl, err := c.parse(
+		SearchUrlPath,
+		withLimitAndOffset(pageToken, pageSize),
+	)
+	if err != nil {
+		return nil, "", nil, err
+	}
+
+	var response *ConfluenceSearchList
+	ratelimitData, err := c.get(ctx, getUsersUrl, &response)
+	if err != nil {
+		return nil, "", ratelimitData, err
+	}
+
+	users := make([]ConfluenceUser, 0)
+	for _, user := range response.Results {
+		users = append(users, user.User)
+	}
+
+	// The only way we can tell that we've hit the end of the list is if we get
+	// back fewer results than we asked for. If we get the last page but there
+	// are `pageSize`, then `.List()` still has to fetch the blank next page.
+	if len(users) < pageSize {
+		return users, "", ratelimitData, nil
+	}
+
+	token := incToken(pageToken, len(users))
+	return users, token, ratelimitData, nil
 }

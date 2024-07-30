@@ -32,7 +32,7 @@ func TestUsersList(t *testing.T) {
 		resources := make([]*v2.Resource, 0)
 		bag := &pagination.Bag{}
 		for {
-			pToken := pagination.Token{}
+			pToken := pagination.Token{Size: 2}
 			state := bag.Current()
 			if state != nil {
 				token, _ := bag.Marshal()
