@@ -52,13 +52,8 @@ func withQueryParameters(parameters map[string]interface{}) Option {
 // withLimitAndOffset adds `start` and `limit` query parameters to a URL. This
 // pagination parameter is only used by the v1 REST API.
 func withLimitAndOffset(pageToken string, pageSize int) Option {
-	maximum := pageSize
-	if maximum == 0 || maximum > maxResults {
-		maximum = maxResults
-	}
-
 	return withQueryParameters(map[string]interface{}{
-		"limit": maximum,
+		"limit": pageSize,
 		"start": pageToken,
 	})
 }
@@ -68,13 +63,8 @@ func WithPaginationCursor(
 	pageSize int,
 	paginationCursor string,
 ) Option {
-	maximum := pageSize
-	if maximum == 0 || maximum > maxResults {
-		maximum = maxResults
-	}
-
 	parameters := map[string]interface{}{
-		"limit": maximum,
+		"limit": pageSize,
 	}
 	if paginationCursor != "" {
 		parameters["cursor"] = paginationCursor
