@@ -112,14 +112,13 @@ func (o *userResourceType) List(
 	logger := ctxzap.Extract(ctx)
 	logger.Debug("Starting Users List", zap.String("token", pToken.Token))
 
-	// There is no Confluence Cloud REST API to get all users, so get all groups
-	// and then all members of each group.
+	// Unfortunately, there is no Confluence Cloud REST API to get all users. We
+	// try to get all the users in a roundabout away by using three other APIs.
+	// First get all groups in Confluence and then for each group get all
+	// members. Finally, we use User Search to try and find any users that were
+	// not a part of any groups.
 
-	// The second parameter here is "user", which acts as a default value.
-	bag, page, size, err := parsePageToken(
-		pToken,
-		&v2.ResourceId{ResourceType: resourceTypeUser.Id},
-	)
+	bag, page, size, err := parsePageToken(pToken, &v2.ResourceId{})
 	if err != nil {
 		return nil, "", nil, err
 	}
@@ -127,8 +126,43 @@ func (o *userResourceType) List(
 	outputResources := make([]*v2.Resource, 0)
 	var outputAnnotations annotations.Annotations
 	switch bag.ResourceTypeID() {
+	case "":
+		users, nextToken, ratelimitData, err := o.client.GetUsersFromSearch(ctx, page, size)
+		outputAnnotations := WithRateLimitAnnotations(ratelimitData)
+		if err != nil {
+			return nil, "", outputAnnotations, err
+		}
+		for _, user := range users {
+			if !shouldIncludeUser(ctx, user) {
+				continue
+			}
+
+			userCopy := user
+			newUserResource, err := userResource(ctx, &userCopy)
+			if err != nil {
+				return nil, "", nil, err
+			}
+
+			outputResources = append(outputResources, newUserResource)
+		}
+
+		err = bag.Next(nextToken)
+		if err != nil {
+			return nil, "", nil, err
+		}
+
+		if bag.Current() == nil {
+			logger.Debug("Finished User Search, moving on to 2D query")
+			bag.Push(
+				pagination.PageState{
+					// Using "user" here as a placeholder so the for loop know to start again.
+					ResourceTypeID: resourceTypeUser.Id,
+				},
+			)
+		}
+
 	case resourceTypeUser.Id:
-		logger.Debug("Got a user from the bag", zap.String("page", page))
+		logger.Debug("Got the placeholder from the bag", zap.String("page", page))
 		if page == "" {
 			page = "0"
 		}
@@ -203,8 +237,7 @@ func (o *userResourceType) List(
 
 		// Add users to output resources. There will be duplicates across groups.
 		for _, user := range users {
-			if user.AccountType != accountTypeAtlassian {
-				logger.Debug("confluence: user is not of type atlassian", zap.Any("user", user))
+			if !shouldIncludeUser(ctx, user) {
 				continue
 			}
 
