@@ -8,6 +8,7 @@ import (
 	"github.com/conductorone/baton-confluence/test"
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/pagination"
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/stretchr/testify/require"
 )
 
@@ -55,8 +56,15 @@ func TestUsersList(t *testing.T) {
 		}
 
 		require.NotNil(t, resources)
-		// We expect there to be duplicates.
-		require.Len(t, resources, 3)
+		// We expect there to be duplicates from users being in multiple groups
+		// and then showing up in User Search.
+		require.Len(t, resources, 6)
 		require.NotEmpty(t, resources[0].Id)
+
+		allIDs := mapset.NewSet[string]()
+		for _, resource := range resources {
+			allIDs.Add(resource.Id.Resource)
+		}
+		require.Equal(t, allIDs.Cardinality(), 2)
 	})
 }
