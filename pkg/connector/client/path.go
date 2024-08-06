@@ -11,14 +11,12 @@ const (
 	GroupsListUrlPath             = "/wiki/rest/api/group"
 	getUsersByGroupIdUrlPath      = "/wiki/rest/api/group/%s/membersByGroupId"
 	groupBaseUrlPath              = "/wiki/rest/api/group/userByGroupId"
+	SearchUrlPath                 = "/wiki/rest/api/search/user"
 	spacePermissionsCreateUrlPath = "/wiki/rest/api/space/%s/permissions"
 	spacePermissionsUpdateUrlPath = "/wiki/rest/api/space/%s/permissions/%s"
 	SpacesListUrlPath             = "/wiki/api/v2/spaces"
 	spacesGetUrlPath              = "/wiki/api/v2/spaces/%s"
 	SpacePermissionsListUrlPath   = "/wiki/api/v2/spaces/%s/permissions"
-	SearchUrlPath                 = "/wiki/rest/api/search/user"
-	addUsersToGroupUrlPath        = "/wiki/rest/api/group/userByGroupId?groupId=%s"
-	removeUsersFromGroupUrlPath   = "/wiki/rest/api/group/userByGroupId?groupId=%s&accountId=%s"
 )
 
 type Option = func(*url.URL) (*url.URL, error)
@@ -58,9 +56,8 @@ func withLimitAndOffset(pageToken string, pageSize int) Option {
 	})
 }
 
-// WithPaginationCursor uses Confluence Cloud's REST API v2 pagination scheme.
-func WithPaginationCursor(
-	pageSize int,
+// withPaginationCursor uses Confluence Cloud's REST API v2 pagination scheme.
+func withPaginationCursor(pageSize int,
 	paginationCursor string,
 ) Option {
 	parameters := map[string]interface{}{
