@@ -19,7 +19,10 @@ func WithConfluenceRatelimitData(resource *v2.RateLimitDescription) uhttp.DoOpti
 		if err != nil {
 			return err
 		}
-		resource = rateLimitData
+		resource.Limit = rateLimitData.Limit
+		resource.Remaining = rateLimitData.Remaining
+		resource.ResetAt = rateLimitData.ResetAt
+		resource.Status = rateLimitData.Status
 		return nil
 	}
 }
