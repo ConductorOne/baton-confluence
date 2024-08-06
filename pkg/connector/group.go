@@ -8,11 +8,9 @@ import (
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/annotations"
 	"github.com/conductorone/baton-sdk/pkg/pagination"
-	ent "github.com/conductorone/baton-sdk/pkg/types/entitlement"
-	grant "github.com/conductorone/baton-sdk/pkg/types/grant"
-	res "github.com/conductorone/baton-sdk/pkg/types/resource"
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
-	"go.uber.org/zap"
+	"github.com/conductorone/baton-sdk/pkg/types/entitlement"
+	"github.com/conductorone/baton-sdk/pkg/types/grant"
+	"github.com/conductorone/baton-sdk/pkg/types/resource"
 )
 
 const (
@@ -35,9 +33,9 @@ func groupResource(ctx context.Context, group *client.ConfluenceGroup) (*v2.Reso
 		"group_type": group.Type,
 	}
 
-	groupTraitOptions := []res.GroupTraitOption{res.WithGroupProfile(profile)}
+	groupTraitOptions := []resource.GroupTraitOption{resource.WithGroupProfile(profile)}
 
-	resource, err := res.NewGroupResource(
+	newGroupResource, err := resource.NewGroupResource(
 		group.Name,
 		resourceTypeGroup,
 		group.Id,
@@ -47,10 +45,19 @@ func groupResource(ctx context.Context, group *client.ConfluenceGroup) (*v2.Reso
 		return nil, err
 	}
 
-	return resource, nil
+	return newGroupResource, nil
 }
 
-func (o *groupResourceType) List(ctx context.Context, resourceId *v2.ResourceId, pt *pagination.Token) ([]*v2.Resource, string, annotations.Annotations, error) {
+func (o *groupResourceType) List(
+	ctx context.Context,
+	resourceId *v2.ResourceId,
+	pt *pagination.Token,
+) (
+	[]*v2.Resource,
+	string,
+	annotations.Annotations,
+	error,
+) {
 	bag := &pagination.Bag{}
 	err := bag.Unmarshal(pt.Token)
 	if err != nil {
@@ -61,9 +68,10 @@ func (o *groupResourceType) List(ctx context.Context, resourceId *v2.ResourceId,
 			ResourceTypeID: resourceTypeGroup.Id,
 		})
 	}
-	groups, token, err := o.client.GetGroups(ctx, bag.PageToken(), ResourcesPageSize)
+	groups, token, ratelimitData, err := o.client.GetGroups(ctx, bag.PageToken(), ResourcesPageSize)
+	outputAnnotations := WithRateLimitAnnotations(ratelimitData)
 	if err != nil {
-		return nil, "", nil, err
+		return nil, "", outputAnnotations, err
 	}
 
 	rv := make([]*v2.Resource, 0, len(groups))
@@ -72,7 +80,7 @@ func (o *groupResourceType) List(ctx context.Context, resourceId *v2.ResourceId,
 
 		gr, err := groupResource(ctx, &groupCopy)
 		if err != nil {
-			return nil, "", nil, err
+			return nil, "", outputAnnotations, err
 		}
 
 		rv = append(rv, gr)
@@ -80,22 +88,31 @@ func (o *groupResourceType) List(ctx context.Context, resourceId *v2.ResourceId,
 
 	nextPage, err := bag.NextToken(token)
 	if err != nil {
-		return nil, "", nil, err
+		return nil, "", outputAnnotations, err
 	}
 
-	return rv, nextPage, nil, nil
+	return rv, nextPage, outputAnnotations, nil
 }
 
-func (o *groupResourceType) Entitlements(ctx context.Context, resource *v2.Resource, _ *pagination.Token) ([]*v2.Entitlement, string, annotations.Annotations, error) {
+func (o *groupResourceType) Entitlements(
+	ctx context.Context,
+	resource *v2.Resource,
+	_ *pagination.Token,
+) (
+	[]*v2.Entitlement,
+	string,
+	annotations.Annotations,
+	error,
+) {
 	var rv []*v2.Entitlement
 
-	assignmentOptions := []ent.EntitlementOption{
-		ent.WithGrantableTo(resourceTypeUser),
-		ent.WithDisplayName(fmt.Sprintf("%s Group Member", resource.DisplayName)),
-		ent.WithDescription(fmt.Sprintf("Is member of the %s group in Confluence", resource.DisplayName)),
+	assignmentOptions := []entitlement.EntitlementOption{
+		entitlement.WithGrantableTo(resourceTypeUser),
+		entitlement.WithDisplayName(fmt.Sprintf("%s Group Member", resource.DisplayName)),
+		entitlement.WithDescription(fmt.Sprintf("Is member of the %s group in Confluence", resource.DisplayName)),
 	}
 
-	rv = append(rv, ent.NewAssignmentEntitlement(
+	rv = append(rv, entitlement.NewAssignmentEntitlement(
 		resource,
 		groupMemberEntitlement,
 		assignmentOptions...,
@@ -104,8 +121,16 @@ func (o *groupResourceType) Entitlements(ctx context.Context, resource *v2.Resou
 	return rv, "", nil, nil
 }
 
-func (o *groupResourceType) Grants(ctx context.Context, resource *v2.Resource, pt *pagination.Token) ([]*v2.Grant, string, annotations.Annotations, error) {
-	l := ctxzap.Extract(ctx)
+func (o *groupResourceType) Grants(
+	ctx context.Context,
+	resource *v2.Resource,
+	pt *pagination.Token,
+) (
+	[]*v2.Grant,
+	string,
+	annotations.Annotations,
+	error,
+) {
 	bag := &pagination.Bag{}
 	err := bag.Unmarshal(pt.Token)
 	if err != nil {
@@ -117,15 +142,20 @@ func (o *groupResourceType) Grants(ctx context.Context, resource *v2.Resource, p
 		})
 	}
 
-	users, token, err := o.client.GetGroupMembers(ctx, bag.PageToken(), ResourcesPageSize, resource.DisplayName)
+	users, token, ratelimitData, err := o.client.GetGroupMembers(
+		ctx,
+		bag.PageToken(),
+		ResourcesPageSize,
+		resource.Id.Resource,
+	)
+	outputAnnotations := WithRateLimitAnnotations(ratelimitData)
 	if err != nil {
-		return nil, "", nil, err
+		return nil, "", outputAnnotations, err
 	}
 
 	var rv []*v2.Grant
 	for _, user := range users {
-		if user.AccountType != accountTypeAtlassian {
-			l.Debug("confluence: user is not of type atlassian", zap.Any("user", user))
+		if !shouldIncludeUser(ctx, user) {
 			continue
 		}
 
@@ -141,9 +171,36 @@ func (o *groupResourceType) Grants(ctx context.Context, resource *v2.Resource, p
 
 	nextPage, err := bag.NextToken(token)
 	if err != nil {
-		return nil, "", nil, err
+		return nil, "", outputAnnotations, err
 	}
-	return rv, nextPage, nil, nil
+	return rv, nextPage, outputAnnotations, nil
+}
+
+func (o *groupResourceType) Grant(
+	ctx context.Context,
+	principal *v2.Resource,
+	entitlement *v2.Entitlement,
+) (annotations.Annotations, error) {
+	ratelimitData, err := o.client.AddUserToGroup(
+		ctx,
+		entitlement.Resource.Id.Resource,
+		principal.Id.Resource,
+	)
+	outputAnnotations := WithRateLimitAnnotations(ratelimitData)
+	return outputAnnotations, err
+}
+
+func (o *groupResourceType) Revoke(
+	ctx context.Context,
+	grant *v2.Grant,
+) (annotations.Annotations, error) {
+	ratelimitData, err := o.client.RemoveUserFromGroup(
+		ctx,
+		grant.Entitlement.Resource.Id.Resource,
+		grant.Principal.Id.Resource,
+	)
+	outputAnnotations := WithRateLimitAnnotations(ratelimitData)
+	return outputAnnotations, err
 }
 
 func groupBuilder(client *client.ConfluenceClient) *groupResourceType {

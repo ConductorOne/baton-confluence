@@ -1,6 +1,7 @@
 package test
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -49,8 +50,9 @@ func FixturesServer() *httptest.Server {
 				var filename string
 				routeUrl := request.URL.String()
 				switch {
-				case strings.Contains(routeUrl, "group/member") && strings.Contains(routeUrl, "start=2"):
-					filename = "../../test/fixtures/users2.json"
+				case strings.Contains(routeUrl, "group/member") && strings.Contains(routeUrl, "start=2") ||
+					(strings.Contains(routeUrl, client.SearchUrlPath) && strings.Contains(routeUrl, "start=5")):
+					filename = "../../test/fixtures/blank.json"
 				case (strings.Contains(routeUrl, "group/member") && strings.Contains(routeUrl, "confluence-users")) ||
 					(strings.Contains(routeUrl, client.GroupsListUrlPath) && strings.Contains(routeUrl, "123")):
 					filename = "../../test/fixtures/users0.json"
@@ -67,9 +69,13 @@ func FixturesServer() *httptest.Server {
 					filename = "../../test/fixtures/spaces1.json"
 				case strings.Contains(routeUrl, client.SpacesListUrlPath) && !strings.Contains(routeUrl, "cursor"):
 					filename = "../../test/fixtures/spaces0.json"
+				case strings.Contains(routeUrl, client.SearchUrlPath) && strings.Contains(routeUrl, "start=0"):
+					filename = "../../test/fixtures/search0.json"
+				case strings.Contains(routeUrl, client.SearchUrlPath) && strings.Contains(routeUrl, "start=3"):
+					filename = "../../test/fixtures/search1.json"
 				default:
 					// This should never happen in tests.
-					return
+					panic(fmt.Errorf("bad url: %s", routeUrl))
 				}
 				data, _ := os.ReadFile(filename)
 				_, err := writer.Write(data)
