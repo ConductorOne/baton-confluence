@@ -17,6 +17,8 @@ const (
 	SpacesListUrlPath             = "/wiki/api/v2/spaces"
 	spacesGetUrlPath              = "/wiki/api/v2/spaces/%s"
 	SpacePermissionsListUrlPath   = "/wiki/api/v2/spaces/%s/permissions"
+
+	defaultSize = 100
 )
 
 type Option = func(*url.URL) (*url.URL, error)
@@ -60,8 +62,10 @@ func withLimitAndOffset(pageToken string, pageSize int) Option {
 func withPaginationCursor(pageSize int,
 	paginationCursor string,
 ) Option {
+	// Confluence has limit parameter value Minimum 1
+	// Setting the page size to the defaultSize to reduce the number of calls
 	if pageSize < 1 {
-		pageSize = 1
+		pageSize = defaultSize
 	}
 	parameters := map[string]interface{}{
 		"limit": pageSize,
