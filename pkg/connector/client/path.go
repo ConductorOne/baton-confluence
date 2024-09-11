@@ -60,6 +60,9 @@ func withLimitAndOffset(pageToken string, pageSize int) Option {
 func withPaginationCursor(pageSize int,
 	paginationCursor string,
 ) Option {
+	if pageSize < 1 {
+		pageSize = 1
+	}
 	parameters := map[string]interface{}{
 		"limit": pageSize,
 	}
