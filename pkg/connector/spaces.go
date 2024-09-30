@@ -10,20 +10,18 @@ import (
 	"github.com/conductorone/baton-sdk/pkg/annotations"
 	"github.com/conductorone/baton-sdk/pkg/pagination"
 	"github.com/conductorone/baton-sdk/pkg/types/entitlement"
-	"github.com/conductorone/baton-sdk/pkg/types/grant"
+	grantSdk "github.com/conductorone/baton-sdk/pkg/types/grant"
 	"github.com/conductorone/baton-sdk/pkg/types/resource"
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
-	"go.uber.org/zap"
 )
 
 const separator = "-"
 
-func CreateEntitlementName(operation client.ConfluenceSpaceOperation) string {
+func CreateEntitlementName(verb, noun string) string {
 	return fmt.Sprintf(
 		"%s%s%s",
-		operation.Operation,
+		verb,
 		separator,
-		operation.TargetType,
+		noun,
 	)
 }
 
@@ -75,6 +73,24 @@ func (o *spaceBuilder) List(
 	return rv, nextToken, outputAnnotations, nil
 }
 
+var allNouns = []string{
+	"attachment",
+	"blogpost",
+	"comment",
+	"page",
+	"space",
+}
+var allVerbs = []string{
+	"administer",
+	"archive",
+	"create",
+	"delete",
+	"export",
+	"read",
+	"restrict_content",
+	"update",
+}
+
 func (o *spaceBuilder) Entitlements(
 	ctx context.Context,
 	resource *v2.Resource,
@@ -85,50 +101,40 @@ func (o *spaceBuilder) Entitlements(
 	annotations.Annotations,
 	error,
 ) {
-	logger := ctxzap.Extract(ctx)
-	logger.Debug(
-		"Starting call to Spaces.Entitlements",
-		zap.String("resource.DisplayName", resource.DisplayName),
-		zap.String("resource.Id.Resource", resource.Id.Resource),
-	)
 	entitlements := make([]*v2.Entitlement, 0)
-	spacePermissions, nextToken, ratelimitData, err := o.client.ConfluenceSpaceOperations(
-		ctx,
-		pToken.Token,
-		pToken.Size,
-		resource.Id.Resource,
-	)
-	outputAnnotations := WithRateLimitAnnotations(ratelimitData)
-	if err != nil {
-		return nil, "", outputAnnotations, err
+
+	// Confluence's API doesn't list all the operations you can do on a space, so we use a hard-coded list
+
+	for _, noun := range allNouns {
+		for _, verb := range allVerbs {
+			operationName := CreateEntitlementName(verb, noun)
+			entitlements = append(
+				entitlements,
+				entitlement.NewPermissionEntitlement(
+					resource,
+					operationName,
+					entitlement.WithGrantableTo(resourceTypeUser),
+					entitlement.WithGrantableTo(resourceTypeGroup),
+					entitlement.WithDisplayName(
+						fmt.Sprintf(
+							"Can %s %s",
+							operationName,
+							resource.DisplayName,
+						),
+					),
+					entitlement.WithDescription(
+						fmt.Sprintf(
+							"Has permission to %s %s the %s space in Confluence",
+							verb,
+							noun,
+							resource.DisplayName,
+						),
+					),
+				))
+		}
 	}
 
-	for _, operation := range spacePermissions {
-		operationName := CreateEntitlementName(operation)
-		entitlements = append(
-			entitlements,
-			entitlement.NewPermissionEntitlement(
-				resource,
-				operationName,
-				entitlement.WithGrantableTo(resourceTypeUser),
-				entitlement.WithGrantableTo(resourceTypeGroup),
-				entitlement.WithDisplayName(
-					fmt.Sprintf(
-						"Can %s %s",
-						operationName,
-						resource.DisplayName,
-					),
-				),
-				entitlement.WithDescription(
-					fmt.Sprintf(
-						"Has permission to %s the %s space in Confluence Data Center",
-						operationName,
-						resource.DisplayName,
-					),
-				),
-			))
-	}
-	return entitlements, nextToken, outputAnnotations, nil
+	return entitlements, "", nil, nil
 }
 
 // Grants the grants for a given space are the permissions.
@@ -155,12 +161,18 @@ func (o *spaceBuilder) Grants(
 
 	var permissions []*v2.Grant
 	for _, permission := range permissionsList {
+		grantOpts := []grantSdk.GrantOption{}
 		var resourceType string
 		switch permission.Principal.Type {
 		case "user":
 			resourceType = resourceTypeUser.Id
 		case "group":
 			resourceType = resourceTypeGroup.Id
+			grantOpts = append(grantOpts, grantSdk.WithAnnotation(&v2.GrantExpandable{
+				EntitlementIds: []string{
+					fmt.Sprintf("group:%s:member", permission.Principal.Id),
+				},
+			}))
 		default:
 			// Skip if the type is "role".
 			continue
@@ -172,16 +184,16 @@ func (o *spaceBuilder) Grants(
 			permission.Operation.TargetType,
 		)
 
-		permissions = append(
-			permissions,
-			grant.NewGrant(
-				resource,
-				permissionName,
-				&v2.ResourceId{
-					ResourceType: resourceType,
-					Resource:     permission.Principal.Id,
-				},
-			))
+		grant := grantSdk.NewGrant(
+			resource,
+			permissionName,
+			&v2.ResourceId{
+				ResourceType: resourceType,
+				Resource:     permission.Principal.Id,
+			},
+			grantOpts...,
+		)
+		permissions = append(permissions, grant)
 	}
 
 	return permissions, nextToken, outputAnnotations, nil
