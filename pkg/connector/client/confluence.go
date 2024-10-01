@@ -285,7 +285,7 @@ func (c *ConfluenceClient) ConfluenceSpaceOperations(
 	error,
 ) {
 	logger := ctxzap.Extract(ctx)
-	logger.Debug("fetching space", zap.String("spaceId", spaceId))
+	logger.Debug("fetching operations for space", zap.String("spaceId", spaceId))
 
 	spaceUrl, err := c.parse(
 		fmt.Sprintf(spacesGetUrlPath, spaceId),
