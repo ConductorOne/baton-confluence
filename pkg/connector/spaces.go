@@ -5,18 +5,20 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/conductorone/baton-confluence/pkg/connector/client"
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/annotations"
 	"github.com/conductorone/baton-sdk/pkg/pagination"
 	"github.com/conductorone/baton-sdk/pkg/types/entitlement"
 	grantSdk "github.com/conductorone/baton-sdk/pkg/types/grant"
 	"github.com/conductorone/baton-sdk/pkg/types/resource"
+	mapset "github.com/deckarep/golang-set/v2"
+
+	"github.com/conductorone/baton-confluence/pkg/connector/client"
 )
 
 const separator = "-"
 
-func CreateEntitlementName(verb, noun string) string {
+func createEntitlementName(verb, noun string) string {
 	return fmt.Sprintf(
 		"%s%s%s",
 		verb,
@@ -91,6 +93,18 @@ var allVerbs = []string{
 	"update",
 }
 
+var nounSet = mapset.NewSet[string]()
+var verbSet = mapset.NewSet[string]()
+
+func init() {
+	for _, noun := range allNouns {
+		nounSet.Add(noun)
+	}
+	for _, verb := range allVerbs {
+		verbSet.Add(verb)
+	}
+}
+
 func (o *spaceBuilder) Entitlements(
 	ctx context.Context,
 	resource *v2.Resource,
@@ -107,7 +121,7 @@ func (o *spaceBuilder) Entitlements(
 
 	for _, noun := range allNouns {
 		for _, verb := range allVerbs {
-			operationName := CreateEntitlementName(verb, noun)
+			operationName := createEntitlementName(verb, noun)
 			entitlements = append(
 				entitlements,
 				entitlement.NewPermissionEntitlement(
@@ -135,6 +149,13 @@ func (o *spaceBuilder) Entitlements(
 	}
 
 	return entitlements, "", nil, nil
+}
+
+// checkSpacePermission checks if the operation is in the list of operations we care about.
+// Confluence's API doesn't list all the operations you can do on a space, so we use a hard-coded list
+// This function checks if the operation is in the list of operations we care about
+func checkSpacePermission(operation, targetType string) bool {
+	return verbSet.Contains(operation) && nounSet.Contains(targetType)
 }
 
 // Grants the grants for a given space are the permissions.
@@ -178,15 +199,13 @@ func (o *spaceBuilder) Grants(
 			continue
 		}
 
-		permissionName := fmt.Sprintf(
-			"%s-%s",
-			permission.Operation.Key,
-			permission.Operation.TargetType,
-		)
+		if !checkSpacePermission(permission.Operation.Key, permission.Operation.TargetType) {
+			continue
+		}
 
 		grant := grantSdk.NewGrant(
 			resource,
-			permissionName,
+			createEntitlementName(permission.Operation.Key, permission.Operation.TargetType),
 			&v2.ResourceId{
 				ResourceType: resourceType,
 				Resource:     permission.Principal.Id,
