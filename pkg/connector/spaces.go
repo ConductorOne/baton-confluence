@@ -34,7 +34,8 @@ func GetEntitlementComponents(operation string) (string, string) {
 }
 
 type spaceBuilder struct {
-	client client.ConfluenceClient
+	client             client.ConfluenceClient
+	skipPersonalSpaces bool
 }
 
 func (o *spaceBuilder) ResourceType(ctx context.Context) *v2.ResourceType {
@@ -64,6 +65,9 @@ func (o *spaceBuilder) List(
 	rv := make([]*v2.Resource, 0)
 	for _, space := range spaces {
 		spaceCopy := space
+		if o.skipPersonalSpaces && spaceCopy.Type == "personal" {
+			continue
+		}
 		ur, err := spaceResource(ctx, &spaceCopy)
 		if err != nil {
 			return nil, "", nil, err
@@ -184,6 +188,7 @@ func (o *spaceBuilder) Grants(
 					fmt.Sprintf("group:%s:member", permission.Principal.Id),
 				},
 			}))
+			fmt.Println(resource.Id.Resource, permission.Principal.Type, permission.Principal.Id, fmt.Sprintf("group:%s:member", permission.Principal.Id))
 		default:
 			// Skip if the type is "role".
 			continue
@@ -245,9 +250,10 @@ func (o *spaceBuilder) Revoke(
 	return outputAnnotations, err
 }
 
-func newSpaceBuilder(client *client.ConfluenceClient) *spaceBuilder {
+func newSpaceBuilder(client *client.ConfluenceClient, skipPersonalSpaces bool) *spaceBuilder {
 	return &spaceBuilder{
-		client: *client,
+		client:             *client,
+		skipPersonalSpaces: skipPersonalSpaces,
 	}
 }
 

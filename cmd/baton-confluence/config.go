@@ -20,6 +20,11 @@ var (
 		field.WithDescription("The username for your Confluence account"),
 		field.WithRequired(true),
 	)
+	skipPersonalSpaces = field.BoolField(
+		"skip-personal-spaces",
+		field.WithDescription("Skip syncing personal spaces and their permissions"),
+		field.WithRequired(false),
+	)
 )
 
 var configuration = field.NewConfiguration(
@@ -27,5 +32,6 @@ var configuration = field.NewConfiguration(
 		apiKeyField,
 		domainUrl,
 		usernameField,
+		skipPersonalSpaces,
 	},
 )
