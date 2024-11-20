@@ -93,17 +93,8 @@ var allVerbs = []string{
 	"update",
 }
 
-var nounSet = mapset.NewSet[string]()
-var verbSet = mapset.NewSet[string]()
-
-func init() {
-	for _, noun := range allNouns {
-		nounSet.Add(noun)
-	}
-	for _, verb := range allVerbs {
-		verbSet.Add(verb)
-	}
-}
+var nounSet = mapset.NewSet[string](allNouns...)
+var verbSet = mapset.NewSet[string](allVerbs...)
 
 func (o *spaceBuilder) Entitlements(
 	ctx context.Context,
@@ -152,8 +143,7 @@ func (o *spaceBuilder) Entitlements(
 }
 
 // checkSpacePermission checks if the operation is in the list of operations we care about.
-// Confluence's API doesn't list all the operations you can do on a space, so we use a hard-coded list
-// This function checks if the operation is in the list of operations we care about
+// Confluence's API doesn't list all the operations you can do on a space, so we use a hard-coded list.
 func checkSpacePermission(operation, targetType string) bool {
 	return verbSet.Contains(operation) && nounSet.Contains(targetType)
 }
