@@ -1,5 +1,5 @@
 {
-  "source": ["./dist/macos-arm64_darwin_arm64/baton-confluence"],
+  "source": ["./dist/macos-arm64_darwin_arm64_v8.0/baton-confluence"],
   "bundle_id": "com.conductorone.baton-confluence",
   "apple_id": {
     "username" : "justin.gallardo@conductorone.com"
