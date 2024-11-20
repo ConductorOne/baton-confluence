@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/conductorone/baton-confluence/pkg/connector/client"
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/annotations"
 	"github.com/conductorone/baton-sdk/pkg/connectorbuilder"
+
+	"github.com/conductorone/baton-confluence/pkg/connector/client"
 )
 
 const (
@@ -44,10 +45,11 @@ type Config struct {
 }
 
 type Confluence struct {
-	client   *client.ConfluenceClient
-	domain   string
-	apiKey   string
-	userName string
+	client             *client.ConfluenceClient
+	domain             string
+	apiKey             string
+	userName           string
+	skipPersonalSpaces bool
 }
 
 func New(
@@ -55,16 +57,18 @@ func New(
 	apiKey string,
 	domainUrl string,
 	username string,
+	skipPersonalSpaces bool,
 ) (*Confluence, error) {
 	client, err := client.NewConfluenceClient(ctx, username, apiKey, domainUrl)
 	if err != nil {
 		return nil, err
 	}
 	rv := &Confluence{
-		domain:   domainUrl,
-		apiKey:   apiKey,
-		userName: username,
-		client:   client,
+		domain:             domainUrl,
+		apiKey:             apiKey,
+		userName:           username,
+		client:             client,
+		skipPersonalSpaces: skipPersonalSpaces,
 	}
 	return rv, nil
 }
@@ -99,6 +103,6 @@ func (c *Confluence) ResourceSyncers(ctx context.Context) []connectorbuilder.Res
 	return []connectorbuilder.ResourceSyncer{
 		groupBuilder(c.client),
 		userBuilder(c.client),
-		newSpaceBuilder(c.client),
+		newSpaceBuilder(c.client, c.skipPersonalSpaces),
 	}
 }

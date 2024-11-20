@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/conductorone/baton-confluence/pkg/connector"
 	"github.com/conductorone/baton-sdk/pkg/config"
 	"github.com/conductorone/baton-sdk/pkg/connectorbuilder"
 	"github.com/conductorone/baton-sdk/pkg/field"
@@ -13,6 +12,8 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
+
+	"github.com/conductorone/baton-confluence/pkg/connector"
 )
 
 var version = "dev"
@@ -53,6 +54,7 @@ func getConnector(ctx context.Context, v *viper.Viper) (types.ConnectorServer, e
 		v.GetString(apiKeyField.FieldName),
 		v.GetString(domainUrl.FieldName),
 		v.GetString(usernameField.FieldName),
+		v.GetBool(skipPersonalSpaces.FieldName),
 	)
 	if err != nil {
 		l.Error("error creating connector", zap.Error(err))

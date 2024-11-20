@@ -5,18 +5,20 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/conductorone/baton-confluence/pkg/connector/client"
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/annotations"
 	"github.com/conductorone/baton-sdk/pkg/pagination"
 	"github.com/conductorone/baton-sdk/pkg/types/entitlement"
 	grantSdk "github.com/conductorone/baton-sdk/pkg/types/grant"
 	"github.com/conductorone/baton-sdk/pkg/types/resource"
+	mapset "github.com/deckarep/golang-set/v2"
+
+	"github.com/conductorone/baton-confluence/pkg/connector/client"
 )
 
 const separator = "-"
 
-func CreateEntitlementName(verb, noun string) string {
+func createEntitlementName(verb, noun string) string {
 	return fmt.Sprintf(
 		"%s%s%s",
 		verb,
@@ -32,7 +34,8 @@ func GetEntitlementComponents(operation string) (string, string) {
 }
 
 type spaceBuilder struct {
-	client client.ConfluenceClient
+	client             client.ConfluenceClient
+	skipPersonalSpaces bool
 }
 
 func (o *spaceBuilder) ResourceType(ctx context.Context) *v2.ResourceType {
@@ -62,6 +65,9 @@ func (o *spaceBuilder) List(
 	rv := make([]*v2.Resource, 0)
 	for _, space := range spaces {
 		spaceCopy := space
+		if o.skipPersonalSpaces && spaceCopy.Type == "personal" {
+			continue
+		}
 		ur, err := spaceResource(ctx, &spaceCopy)
 		if err != nil {
 			return nil, "", nil, err
@@ -91,6 +97,9 @@ var allVerbs = []string{
 	"update",
 }
 
+var nounSet = mapset.NewSet[string](allNouns...)
+var verbSet = mapset.NewSet[string](allVerbs...)
+
 func (o *spaceBuilder) Entitlements(
 	ctx context.Context,
 	resource *v2.Resource,
@@ -107,7 +116,7 @@ func (o *spaceBuilder) Entitlements(
 
 	for _, noun := range allNouns {
 		for _, verb := range allVerbs {
-			operationName := CreateEntitlementName(verb, noun)
+			operationName := createEntitlementName(verb, noun)
 			entitlements = append(
 				entitlements,
 				entitlement.NewPermissionEntitlement(
@@ -135,6 +144,12 @@ func (o *spaceBuilder) Entitlements(
 	}
 
 	return entitlements, "", nil, nil
+}
+
+// checkSpacePermission checks if the operation is in the list of operations we care about.
+// Confluence's API doesn't list all the operations you can do on a space, so we use a hard-coded list.
+func checkSpacePermission(operation, targetType string) bool {
+	return verbSet.Contains(operation) && nounSet.Contains(targetType)
 }
 
 // Grants the grants for a given space are the permissions.
@@ -178,15 +193,13 @@ func (o *spaceBuilder) Grants(
 			continue
 		}
 
-		permissionName := fmt.Sprintf(
-			"%s-%s",
-			permission.Operation.Key,
-			permission.Operation.TargetType,
-		)
+		if !checkSpacePermission(permission.Operation.Key, permission.Operation.TargetType) {
+			continue
+		}
 
 		grant := grantSdk.NewGrant(
 			resource,
-			permissionName,
+			createEntitlementName(permission.Operation.Key, permission.Operation.TargetType),
 			&v2.ResourceId{
 				ResourceType: resourceType,
 				Resource:     permission.Principal.Id,
@@ -236,9 +249,10 @@ func (o *spaceBuilder) Revoke(
 	return outputAnnotations, err
 }
 
-func newSpaceBuilder(client *client.ConfluenceClient) *spaceBuilder {
+func newSpaceBuilder(client *client.ConfluenceClient, skipPersonalSpaces bool) *spaceBuilder {
 	return &spaceBuilder{
-		client: *client,
+		client:             *client,
+		skipPersonalSpaces: skipPersonalSpaces,
 	}
 }
 
