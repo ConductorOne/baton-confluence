@@ -188,7 +188,6 @@ func (o *spaceBuilder) Grants(
 					fmt.Sprintf("group:%s:member", permission.Principal.Id),
 				},
 			}))
-			fmt.Println(resource.Id.Resource, permission.Principal.Type, permission.Principal.Id, fmt.Sprintf("group:%s:member", permission.Principal.Id))
 		default:
 			// Skip if the type is "role".
 			continue
