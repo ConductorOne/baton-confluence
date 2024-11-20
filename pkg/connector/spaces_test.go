@@ -4,11 +4,12 @@ import (
 	"context"
 	"testing"
 
-	"github.com/conductorone/baton-confluence/pkg/connector/client"
-	"github.com/conductorone/baton-confluence/test"
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/pagination"
 	"github.com/stretchr/testify/require"
+
+	"github.com/conductorone/baton-confluence/pkg/connector/client"
+	"github.com/conductorone/baton-confluence/test"
 )
 
 func TestSpaces(t *testing.T) {
@@ -27,7 +28,7 @@ func TestSpaces(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	c := newSpaceBuilder(confluenceClient)
+	c := newSpaceBuilder(confluenceClient, false)
 
 	t.Run("should list spaces", func(t *testing.T) {
 		resources := make([]*v2.Resource, 0)
