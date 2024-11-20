@@ -64,10 +64,11 @@ func New(
 		return nil, err
 	}
 	rv := &Confluence{
-		domain:   domainUrl,
-		apiKey:   apiKey,
-		userName: username,
-		client:   client,
+		domain:             domainUrl,
+		apiKey:             apiKey,
+		userName:           username,
+		client:             client,
+		skipPersonalSpaces: skipPersonalSpaces,
 	}
 	return rv, nil
 }
