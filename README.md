@@ -112,16 +112,18 @@ Available Commands:
   help               Help about any command
 
 Flags:
-      --api-key string         The api key for your Confluence account. ($BATON_API_KEY)
+      --api-key string         required: The API key for your Confluence account ($BATON_API_KEY)
       --client-id string       The client ID used to authenticate with ConductorOne ($BATON_CLIENT_ID)
       --client-secret string   The client secret used to authenticate with ConductorOne ($BATON_CLIENT_SECRET)
-      --domain-url string      The domain url for your Confluence account. ($BATON_DOMAIN_URL)
+      --domain-url string      required: The domain URL for your Confluence account ($BATON_DOMAIN_URL)
   -f, --file string            The path to the c1z file to sync with ($BATON_FILE) (default "sync.c1z")
   -h, --help                   help for baton-confluence
       --log-format string      The output format for logs: json, console ($BATON_LOG_FORMAT) (default "json")
       --log-level string       The log level: debug, info, warn, error ($BATON_LOG_LEVEL) (default "info")
-  -p, --provisioning           This must be set in order for provisioning actions to be enabled. ($BATON_PROVISIONING)
-      --username string        The username for your Confluence account. ($BATON_USERNAME)
+  -p, --provisioning           This must be set in order for provisioning actions to be enabled ($BATON_PROVISIONING)
+      --skip-personal-spaces   Skip syncing personal spaces and their permissions ($BATON_SKIP_PERSONAL_SPACES)
+      --ticketing              This must be set to enable ticketing support ($BATON_TICKETING)
+      --username string        required: The username for your Confluence account ($BATON_USERNAME)
   -v, --version                version for baton-confluence
 
 Use "baton-confluence [command] --help" for more information about a command.
