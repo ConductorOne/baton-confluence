@@ -2,12 +2,14 @@ package connector
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/annotations"
 	"github.com/conductorone/baton-sdk/pkg/connectorbuilder"
+	mapset "github.com/deckarep/golang-set/v2"
 
 	"github.com/conductorone/baton-confluence/pkg/connector/client"
 )
@@ -54,6 +56,58 @@ type Confluence struct {
 	verbs              []string
 }
 
+var defaultNouns = []string{
+	"attachment",
+	"blogpost",
+	"comment",
+	"page",
+	"space",
+}
+
+var defaultVerbs = []string{
+	"administer",
+	"archive",
+	"create",
+	"delete",
+	"export",
+	"read",
+	"restrict_content",
+	"update",
+}
+
+func filterArgs(args, defaults []string) ([]string, error) {
+	var validArgs []string
+
+	argsSet := mapset.NewSet(args...)
+	defaultsSet := mapset.NewSet(defaults...)
+
+	// If there were no args at all then use the defaults
+	if argsSet.Cardinality() == 0 {
+		return defaults, nil
+	}
+
+	// Validate that all args are valid
+	for _, arg := range args {
+		if !defaultsSet.Contains(arg) {
+			return nil, fmt.Errorf("invalid input: %s", arg)
+		}
+	}
+
+	// Otherwise, grab from the defaults in the right order
+	for _, arg := range defaults {
+		if argsSet.Contains(arg) {
+			validArgs = append(validArgs, arg)
+		}
+	}
+
+	// Just double check that validArgs isn't empty
+	if len(validArgs) == 0 {
+		return nil, errors.New("missing valid args")
+	}
+
+	return validArgs, nil
+}
+
 func New(
 	ctx context.Context,
 	apiKey string,
@@ -67,14 +121,25 @@ func New(
 	if err != nil {
 		return nil, err
 	}
+
+	filteredNouns, err := filterArgs(nouns, defaultNouns)
+	if err != nil {
+		return nil, err
+	}
+
+	filteredVerbs, err := filterArgs(verbs, defaultVerbs)
+	if err != nil {
+		return nil, err
+	}
+
 	rv := &Confluence{
 		domain:             domainUrl,
 		apiKey:             apiKey,
 		userName:           username,
 		client:             client,
 		skipPersonalSpaces: skipPersonalSpaces,
-		nouns:              nouns,
-		verbs:              verbs,
+		nouns:              filteredNouns,
+		verbs:              filteredVerbs,
 	}
 	return rv, nil
 }
