@@ -28,7 +28,27 @@ func TestSpaces(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	c := newSpaceBuilder(confluenceClient, false)
+	c := newSpaceBuilder(
+		confluenceClient,
+		false,
+ 		[]string{
+			"attachment",
+			"blogpost",
+			"comment",
+			"page",
+			"space",
+		},
+		[]string{
+			"administer",
+			"archive",
+			"create",
+			"delete",
+			"export",
+			"read",
+			"restrict_content",
+			"update",
+		},
+	)
 
 	t.Run("should list spaces", func(t *testing.T) {
 		resources := make([]*v2.Resource, 0)
