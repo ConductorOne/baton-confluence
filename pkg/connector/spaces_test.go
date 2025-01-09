@@ -31,7 +31,7 @@ func TestSpaces(t *testing.T) {
 	c := newSpaceBuilder(
 		confluenceClient,
 		false,
- 		[]string{
+		[]string{
 			"attachment",
 			"blogpost",
 			"comment",
