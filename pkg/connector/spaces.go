@@ -36,6 +36,8 @@ func GetEntitlementComponents(operation string) (string, string) {
 type spaceBuilder struct {
 	client             client.ConfluenceClient
 	skipPersonalSpaces bool
+	nouns              []string
+	verbs              []string
 }
 
 func (o *spaceBuilder) ResourceType(ctx context.Context) *v2.ResourceType {
@@ -79,27 +81,6 @@ func (o *spaceBuilder) List(
 	return rv, nextToken, outputAnnotations, nil
 }
 
-var allNouns = []string{
-	"attachment",
-	"blogpost",
-	"comment",
-	"page",
-	"space",
-}
-var allVerbs = []string{
-	"administer",
-	"archive",
-	"create",
-	"delete",
-	"export",
-	"read",
-	"restrict_content",
-	"update",
-}
-
-var nounSet = mapset.NewSet[string](allNouns...)
-var verbSet = mapset.NewSet[string](allVerbs...)
-
 func (o *spaceBuilder) Entitlements(
 	ctx context.Context,
 	resource *v2.Resource,
@@ -112,10 +93,8 @@ func (o *spaceBuilder) Entitlements(
 ) {
 	entitlements := make([]*v2.Entitlement, 0)
 
-	// Confluence's API doesn't list all the operations you can do on a space, so we use a hard-coded list
-
-	for _, noun := range allNouns {
-		for _, verb := range allVerbs {
+	for _, noun := range o.nouns {
+		for _, verb := range o.verbs {
 			operationName := createEntitlementName(verb, noun)
 			entitlements = append(
 				entitlements,
@@ -147,9 +126,8 @@ func (o *spaceBuilder) Entitlements(
 }
 
 // checkSpacePermission checks if the operation is in the list of operations we care about.
-// Confluence's API doesn't list all the operations you can do on a space, so we use a hard-coded list.
-func checkSpacePermission(operation, targetType string) bool {
-	return verbSet.Contains(operation) && nounSet.Contains(targetType)
+func checkSpacePermission(nouns mapset.Set[string], verbs mapset.Set[string], operation, targetType string) bool {
+	return verbs.Contains(operation) && nouns.Contains(targetType)
 }
 
 // Grants the grants for a given space are the permissions.
@@ -174,6 +152,9 @@ func (o *spaceBuilder) Grants(
 		return nil, "", outputAnnotations, err
 	}
 
+	nounsSet := mapset.NewSet(o.nouns...)
+	verbsSet := mapset.NewSet(o.verbs...)
+
 	var permissions []*v2.Grant
 	for _, permission := range permissionsList {
 		grantOpts := []grantSdk.GrantOption{}
@@ -193,7 +174,7 @@ func (o *spaceBuilder) Grants(
 			continue
 		}
 
-		if !checkSpacePermission(permission.Operation.Key, permission.Operation.TargetType) {
+		if !checkSpacePermission(nounsSet, verbsSet, permission.Operation.Key, permission.Operation.TargetType) {
 			continue
 		}
 
@@ -249,10 +230,12 @@ func (o *spaceBuilder) Revoke(
 	return outputAnnotations, err
 }
 
-func newSpaceBuilder(client *client.ConfluenceClient, skipPersonalSpaces bool) *spaceBuilder {
+func newSpaceBuilder(client *client.ConfluenceClient, skipPersonalSpaces bool, nouns, verbs []string) *spaceBuilder {
 	return &spaceBuilder{
 		client:             *client,
 		skipPersonalSpaces: skipPersonalSpaces,
+		nouns:              nouns,
+		verbs:              verbs,
 	}
 }
 

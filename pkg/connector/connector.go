@@ -50,6 +50,8 @@ type Confluence struct {
 	apiKey             string
 	userName           string
 	skipPersonalSpaces bool
+	nouns              []string
+	verbs              []string
 }
 
 func New(
@@ -58,6 +60,8 @@ func New(
 	domainUrl string,
 	username string,
 	skipPersonalSpaces bool,
+	nouns []string,
+	verbs []string,
 ) (*Confluence, error) {
 	client, err := client.NewConfluenceClient(ctx, username, apiKey, domainUrl)
 	if err != nil {
@@ -69,6 +73,8 @@ func New(
 		userName:           username,
 		client:             client,
 		skipPersonalSpaces: skipPersonalSpaces,
+		nouns:              nouns,
+		verbs:              verbs,
 	}
 	return rv, nil
 }
@@ -103,6 +109,6 @@ func (c *Confluence) ResourceSyncers(ctx context.Context) []connectorbuilder.Res
 	return []connectorbuilder.ResourceSyncer{
 		groupBuilder(c.client),
 		userBuilder(c.client),
-		newSpaceBuilder(c.client, c.skipPersonalSpaces),
+		newSpaceBuilder(c.client, c.skipPersonalSpaces, c.nouns, c.verbs),
 	}
 }
