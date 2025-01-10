@@ -81,6 +81,13 @@ func (c *ConfluenceClient) makeRequest(
 	return nil, &RequestError{
 		URL:    url,
 		Status: response.StatusCode,
-		Body:   string(responseBody),
+		Body:   logBody(responseBody, 2048),
 	}
+}
+
+func logBody(body []byte, size int) string {
+	if len(body) > size {
+		return string(body[:size]) + " ..."
+	}
+	return string(body)
 }

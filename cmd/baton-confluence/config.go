@@ -25,12 +25,12 @@ var (
 		field.WithDescription("Skip syncing personal spaces and their permissions"),
 		field.WithRequired(false),
 	)
-	nounsField = field.StringArrayField(
+	nounsField = field.StringSliceField(
 		"noun",
 		field.WithDescription("The nouns for your Confluence Space sync"),
 		field.WithRequired(false),
 	)
-	verbsField = field.StringArrayField(
+	verbsField = field.StringSliceField(
 		"verb",
 		field.WithDescription("The verbs for your Confluence Space sync"),
 		field.WithRequired(false),

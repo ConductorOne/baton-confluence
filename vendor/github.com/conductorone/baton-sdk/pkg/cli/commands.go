@@ -33,9 +33,13 @@ func MakeMainCommand(
 	getconnector GetConnectorFunc,
 	opts ...connectorrunner.Option,
 ) func(*cobra.Command, []string) error {
-	return func(*cobra.Command, []string) error {
-		// validate required fields and relationship constraints
-		if err := field.Validate(confschema, v); err != nil {
+	return func(cmd *cobra.Command, args []string) error {
+		// NOTE(shackra): bind all the flags (persistent and
+		// regular) with our instance of Viper, doing this
+		// anywhere else may fail to communicate to Viper the
+		// values gathered by Cobra.
+		err := v.BindPFlags(cmd.Flags())
+		if err != nil {
 			return err
 		}
 
@@ -52,11 +56,17 @@ func MakeMainCommand(
 		l := ctxzap.Extract(runCtx)
 
 		if isService() {
+			l.Debug("running as service", zap.String("name", name))
 			runCtx, err = runService(runCtx, name)
 			if err != nil {
 				l.Error("error running service", zap.Error(err))
 				return err
 			}
+		}
+
+		// validate required fields and relationship constraints
+		if err := field.Validate(confschema, v); err != nil {
+			return err
 		}
 
 		c, err := getconnector(runCtx, v)
@@ -79,6 +89,9 @@ func MakeMainCommand(
 					v.GetString("client-secret"),
 				),
 			)
+			if v.GetBool("skip-full-sync") {
+				opts = append(opts, connectorrunner.WithFullSyncDisabled())
+			}
 		} else {
 			switch {
 			case v.GetString("grant-entitlement") != "":
@@ -127,6 +140,10 @@ func MakeMainCommand(
 				opts = append(opts,
 					connectorrunner.WithTicketingEnabled(),
 					connectorrunner.WithCreateTicket(v.GetString("ticket-template-path")))
+			case v.GetBool("bulk-create-ticket"):
+				opts = append(opts,
+					connectorrunner.WithTicketingEnabled(),
+					connectorrunner.WithBulkCreateTicket(v.GetString("bulk-ticket-template-path")))
 			case v.GetBool("list-ticket-schemas"):
 				opts = append(opts,
 					connectorrunner.WithTicketingEnabled(),
@@ -148,6 +165,7 @@ func MakeMainCommand(
 			opts = append(opts, connectorrunner.WithTempDir(v.GetString("c1z-temp-dir")))
 		}
 
+		// NOTE(shackra): top-most in the execution flow for connectors
 		r, err := connectorrunner.NewConnectorRunner(runCtx, c, opts...)
 		if err != nil {
 			l.Error("error creating connector runner", zap.Error(err))
@@ -172,9 +190,13 @@ func MakeGRPCServerCommand(
 	confschema field.Configuration,
 	getconnector GetConnectorFunc,
 ) func(*cobra.Command, []string) error {
-	return func(*cobra.Command, []string) error {
-		// validate required fields and relationship constraints
-		if err := field.Validate(confschema, v); err != nil {
+	return func(cmd *cobra.Command, args []string) error {
+		// NOTE(shackra): bind all the flags (persistent and
+		// regular) with our instance of Viper, doing this
+		// anywhere else may fail to communicate to Viper the
+		// values gathered by Cobra.
+		err := v.BindPFlags(cmd.Flags())
+		if err != nil {
 			return err
 		}
 
@@ -185,6 +207,11 @@ func MakeGRPCServerCommand(
 			logging.WithLogLevel(v.GetString("log-level")),
 		)
 		if err != nil {
+			return err
+		}
+
+		// validate required fields and relationship constraints
+		if err := field.Validate(confschema, v); err != nil {
 			return err
 		}
 
@@ -203,6 +230,10 @@ func MakeGRPCServerCommand(
 			copts = append(copts, connector.WithTicketingEnabled())
 		}
 
+		if v.GetBool("skip-full-sync") {
+			copts = append(copts, connector.WithFullSyncDisabled())
+		}
+
 		switch {
 		case v.GetString("grant-entitlement") != "":
 			copts = append(copts, connector.WithProvisioningEnabled())
@@ -215,6 +246,8 @@ func MakeGRPCServerCommand(
 		case v.GetString("rotate-credentials") != "" || v.GetString("rotate-credentials-type") != "":
 			copts = append(copts, connector.WithProvisioningEnabled())
 		case v.GetBool("create-ticket"):
+			copts = append(copts, connector.WithTicketingEnabled())
+		case v.GetBool("bulk-create-ticket"):
 			copts = append(copts, connector.WithTicketingEnabled())
 		case v.GetBool("list-ticket-schemas"):
 			copts = append(copts, connector.WithTicketingEnabled())
@@ -238,7 +271,9 @@ func MakeGRPCServerCommand(
 			return err
 		}
 
-		// NOTE (shackra): I don't understand this goroutine
+		// Avoid zombie processes. If the parent dies, this
+		// will cause Stdin on the child to close, and then
+		// the child will exit itself.
 		go func() {
 			in := make([]byte, 1)
 			_, err := os.Stdin.Read(in)
@@ -270,9 +305,19 @@ func MakeCapabilitiesCommand(
 	ctx context.Context,
 	name string,
 	v *viper.Viper,
+	confschema field.Configuration,
 	getconnector GetConnectorFunc,
 ) func(*cobra.Command, []string) error {
-	return func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, args []string) error {
+		// NOTE(shackra): bind all the flags (persistent and
+		// regular) with our instance of Viper, doing this
+		// anywhere else may fail to communicate to Viper the
+		// values gathered by Cobra.
+		err := v.BindPFlags(cmd.Flags())
+		if err != nil {
+			return err
+		}
+
 		runCtx, err := initLogger(
 			ctx,
 			name,
@@ -280,6 +325,11 @@ func MakeCapabilitiesCommand(
 			logging.WithLogLevel(v.GetString("log-level")),
 		)
 		if err != nil {
+			return err
+		}
+
+		// validate required fields and relationship constraints
+		if err := field.Validate(confschema, v); err != nil {
 			return err
 		}
 
