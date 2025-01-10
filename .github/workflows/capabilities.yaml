@@ -24,6 +24,10 @@ jobs:
         run: go build -o connector ./cmd/baton-confluence
 
       - name: Run and save output
+        env:
+          BATON_API_KEY: "example"
+          BATON_DOMAIN_URL: "example.com"
+          BATON_USERNAME: "example"
         run: ./connector capabilities > baton_capabilities.json
 
       - name: Commit changes
