@@ -5,7 +5,7 @@ import (
 	"slices"
 
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
-	"github.com/conductorone/baton-sdk/pkg/helpers"
+	"github.com/conductorone/baton-sdk/pkg/ratelimit"
 	"github.com/conductorone/baton-sdk/pkg/uhttp"
 )
 
@@ -15,7 +15,7 @@ import (
 // https://developer.atlassian.com/cloud/confluence/rate-limiting/
 func WithConfluenceRatelimitData(resource *v2.RateLimitDescription) uhttp.DoOption {
 	return func(response *uhttp.WrapperResponse) error {
-		rateLimitData, err := helpers.ExtractRateLimitData(response.StatusCode, &response.Header)
+		rateLimitData, err := ratelimit.ExtractRateLimitData(response.StatusCode, &response.Header)
 		if err != nil {
 			return err
 		}
