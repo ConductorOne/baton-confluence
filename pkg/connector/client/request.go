@@ -50,6 +50,7 @@ func (c *ConfluenceClient) makeRequest(
 	}
 
 	req.SetBasicAuth(c.user, c.apiKey)
+	req.Header.Set("X-Atlassian-Token", "no-check")
 
 	ratelimitData := v2.RateLimitDescription{}
 
