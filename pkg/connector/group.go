@@ -183,8 +183,8 @@ func (o *groupResourceType) Grant(
 ) (annotations.Annotations, error) {
 	ratelimitData, err := o.client.AddUserToGroup(
 		ctx,
-		entitlement.Resource.Id.Resource,
 		principal.Id.Resource,
+		entitlement.Resource.Id.Resource,
 	)
 	outputAnnotations := WithRateLimitAnnotations(ratelimitData)
 	return outputAnnotations, err
