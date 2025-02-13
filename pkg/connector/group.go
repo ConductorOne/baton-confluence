@@ -196,8 +196,8 @@ func (o *groupResourceType) Revoke(
 ) (annotations.Annotations, error) {
 	ratelimitData, err := o.client.RemoveUserFromGroup(
 		ctx,
-		grant.Entitlement.Resource.Id.Resource,
 		grant.Principal.Id.Resource,
+		grant.Entitlement.Resource.Id.Resource,
 	)
 	outputAnnotations := WithRateLimitAnnotations(ratelimitData)
 	return outputAnnotations, err
