@@ -120,12 +120,13 @@ Flags:
   -h, --help                   help for baton-confluence
       --log-format string      The output format for logs: json, console ($BATON_LOG_FORMAT) (default "json")
       --log-level string       The log level: debug, info, warn, error ($BATON_LOG_LEVEL) (default "info")
-      --noun stringArray       The nouns for your Confluence Space sync ($BATON_NOUN)
+      --noun strings           The nouns for your Confluence Space sync ($BATON_NOUN)
   -p, --provisioning           This must be set in order for provisioning actions to be enabled ($BATON_PROVISIONING)
+      --skip-full-sync         This must be set to skip a full sync ($BATON_SKIP_FULL_SYNC)
       --skip-personal-spaces   Skip syncing personal spaces and their permissions ($BATON_SKIP_PERSONAL_SPACES)
       --ticketing              This must be set to enable ticketing support ($BATON_TICKETING)
       --username string        required: The username for your Confluence account ($BATON_USERNAME)
-      --verb stringArray       The verbs for your Confluence Space sync ($BATON_VERB)
+      --verb strings           The verbs for your Confluence Space sync ($BATON_VERB)
   -v, --version                version for baton-confluence
 
 Use "baton-confluence [command] --help" for more information about a command.
