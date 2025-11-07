@@ -36,9 +36,5 @@ func shouldIncludeUser(ctx context.Context, user client.ConfluenceUser) bool {
 		logger.Debug("confluence: user is not of type atlassian", zap.Any("user", user))
 		return false
 	}
-	if len(user.Operations) == 0 {
-		logger.Debug("confluence: user is deactivated (Unlicensed)", zap.Any("user", user))
-		return false
-	}
 	return true
 }
