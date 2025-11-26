@@ -15,7 +15,7 @@ import (
 func TestUsersList(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("should get users, using pagination, ignoring robots & deactivated", func(t *testing.T) {
+	t.Run("should get users, using pagination, ignoring robots but including deactivated", func(t *testing.T) {
 		server := test.FixturesServer()
 		defer server.Close()
 
@@ -57,14 +57,14 @@ func TestUsersList(t *testing.T) {
 
 		require.NotNil(t, resources)
 		// We expect there to be duplicates from users being in multiple groups
-		// and then showing up in User Search.
-		require.Len(t, resources, 6)
+		// and then showing up in User Search. Now includes deactivated users.
+		require.Len(t, resources, 7)
 		require.NotEmpty(t, resources[0].Id)
 
 		allIDs := mapset.NewSet[string]()
 		for _, resource := range resources {
 			allIDs.Add(resource.Id.Resource)
 		}
-		require.Equal(t, allIDs.Cardinality(), 2)
+		require.Equal(t, allIDs.Cardinality(), 3)
 	})
 }
