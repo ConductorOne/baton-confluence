@@ -5,15 +5,14 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/conductorone/baton-sdk/pkg/config"
+	cfg "github.com/conductorone/baton-confluence/pkg/config"
+	"github.com/conductorone/baton-confluence/pkg/connector"
+	sdkConfig "github.com/conductorone/baton-sdk/pkg/config"
 	"github.com/conductorone/baton-sdk/pkg/connectorbuilder"
 	"github.com/conductorone/baton-sdk/pkg/field"
 	"github.com/conductorone/baton-sdk/pkg/types"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
-	"github.com/spf13/viper"
 	"go.uber.org/zap"
-
-	"github.com/conductorone/baton-confluence/pkg/connector"
 )
 
 var version = "dev"
@@ -21,11 +20,11 @@ var version = "dev"
 func main() {
 	ctx := context.Background()
 
-	_, cmd, err := config.DefineConfiguration(
+	_, cmd, err := sdkConfig.DefineConfiguration(
 		ctx,
 		"baton-confluence",
 		getConnector,
-		configuration,
+		cfg.Configuration,
 	)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
@@ -41,22 +40,21 @@ func main() {
 	}
 }
 
-func getConnector(ctx context.Context, v *viper.Viper) (types.ConnectorServer, error) {
+func getConnector(ctx context.Context, config *cfg.Confluence) (types.ConnectorServer, error) {
 	l := ctxzap.Extract(ctx)
 
-	err := field.Validate(configuration, v)
-	if err != nil {
+	if err := field.Validate(cfg.Configuration, config); err != nil {
 		return nil, err
 	}
 
 	cb, err := connector.New(
 		ctx,
-		v.GetString(apiKeyField.FieldName),
-		v.GetString(domainUrl.FieldName),
-		v.GetString(usernameField.FieldName),
-		v.GetBool(skipPersonalSpaces.FieldName),
-		v.GetStringSlice(nounsField.FieldName),
-		v.GetStringSlice(verbsField.FieldName),
+		config.ApiKey,
+		config.DomainUrl,
+		config.Username,
+		config.SkipPersonalSpaces,
+		config.Noun,
+		config.Verb,
 	)
 	if err != nil {
 		l.Error("error creating connector", zap.Error(err))
