@@ -8,7 +8,6 @@ import (
 
 	"go.opentelemetry.io/otel/log"
 	"go.opentelemetry.io/otel/sdk/instrumentation"
-	"go.opentelemetry.io/otel/sdk/resource"
 )
 
 // FilterProcessor is a [Processor] that knows, and can identify, what [Record]
@@ -31,7 +30,7 @@ import (
 // It provides a Processor used to filter out [Record]
 // that has a [log.Severity] below a threshold.
 type FilterProcessor interface {
-	// Enabled returns whether the Processor will process for the given context
+	// Enabled reports whether the Processor will process for the given context
 	// and param.
 	//
 	// The passed param is likely to be a partial record information being
@@ -56,7 +55,7 @@ type FilterProcessor interface {
 
 // EnabledParameters represents payload for [FilterProcessor]'s Enabled method.
 type EnabledParameters struct {
-	Resource             resource.Resource
 	InstrumentationScope instrumentation.Scope
 	Severity             log.Severity
+	EventName            string
 }
