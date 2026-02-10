@@ -1,6 +1,6 @@
 ![Baton Logo](./docs/images/baton-logo.png)
 
-# `baton-confluence` [![Go Reference](https://pkg.go.dev/badge/github.com/conductorone/baton-confluence.svg)](https://pkg.go.dev/github.com/conductorone/baton-confluence) ![main ci](https://github.com/conductorone/baton-confluence/actions/workflows/main.yaml/badge.svg)
+# `baton-confluence` [![Go Reference](https://pkg.go.dev/badge/github.com/conductorone/baton-confluence.svg)](https://pkg.go.dev/github.com/conductorone/baton-confluence) ![verify](https://github.com/conductorone/baton-confluence/actions/workflows/verify.yaml/badge.svg)
 
 `baton-confluence` is a connector for Confluence built using the [Baton SDK](https://github.com/conductorone/baton-sdk). It communicates with the confluence API to sync data about groups, and users.
 
@@ -41,7 +41,7 @@ baton resources
 - Users
 
 ## Space Permissions
-Every Confluence space has its own set of permissions which determine what 
+Every Confluence space has its own set of permissions which determine what
 people can do in the space.
 
 These permissions are Entitlements for Spaces and are represented as a pair of
@@ -90,9 +90,9 @@ See [Space Permissions Overview documentation page](https://confluence.atlassian
 
 # Contributing, Support and Issues
 
-We started Baton because we were tired of taking screenshots and manually 
-building spreadsheets. We welcome contributions, and ideas, no matter how small 
--- our goal is to make identity and permissions sprawl less painful for 
+We started Baton because we were tired of taking screenshots and manually
+building spreadsheets. We welcome contributions, and ideas, no matter how small
+-- our goal is to make identity and permissions sprawl less painful for
 everyone. If you have questions, problems, or ideas: Please open a GitHub Issue!
 
 See [CONTRIBUTING.md](https://github.com/ConductorOne/baton/blob/main/CONTRIBUTING.md) for more details.
