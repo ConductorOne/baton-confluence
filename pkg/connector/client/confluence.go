@@ -16,7 +16,10 @@ import (
 )
 
 const (
-	maxResults = 50
+	// maxResults controls the page size for v2 API pagination (space
+	// permissions, etc.). Per Atlassian docs, Confluence Cloud v2 API
+	// maximum is 250. Previously 50.
+	maxResults = 250
 )
 
 type RequestError struct {
