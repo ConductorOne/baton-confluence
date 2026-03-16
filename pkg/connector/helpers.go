@@ -10,7 +10,9 @@ import (
 	"go.uber.org/zap"
 )
 
-const ResourcesPageSize = 100
+// ResourcesPageSize controls the default page size for v1 API list operations.
+// Confluence Cloud v1 API defaults to 1000 with no documented hard maximum.
+const ResourcesPageSize = 500
 
 func annotationsForUserResourceType() annotations.Annotations {
 	annos := annotations.Annotations{}
