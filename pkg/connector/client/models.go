@@ -138,3 +138,40 @@ type CreateSpacePermissionRequestBody struct {
 type AddUserToGroupRequestBody struct {
 	AccountId string `json:"accountId"`
 }
+
+type SpaceRole struct {
+	Id               string   `json:"id"`
+	Type             string   `json:"type"`
+	Name             string   `json:"name"`
+	Description      string   `json:"description"`
+	SpacePermissions []string `json:"spacePermissions"`
+}
+
+type SpaceRoleAssignmentPrincipal struct {
+	PrincipalType string `json:"principalType"`
+	PrincipalId   string `json:"principalId"`
+}
+
+type SpaceRoleAssignment struct {
+	Principal SpaceRoleAssignmentPrincipal `json:"principal"`
+	RoleId    string                       `json:"roleId"`
+}
+
+type SpaceRolesResponse struct {
+	Results []SpaceRole    `json:"results"`
+	Links   ConfluenceLink `json:"_links"`
+}
+
+type SpaceRoleAssignmentsResponse struct {
+	Results []SpaceRoleAssignment `json:"results"`
+	Links   ConfluenceLink        `json:"_links"`
+}
+
+type SpaceRoleModeResponse struct {
+	Mode string `json:"mode"`
+}
+
+type SetSpaceRoleAssignmentRequest struct {
+	Principal SpaceRoleAssignmentPrincipal `json:"principal"`
+	RoleId    string                       `json:"roleId,omitempty"`
+}

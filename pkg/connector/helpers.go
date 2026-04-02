@@ -2,10 +2,12 @@ package connector
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/conductorone/baton-confluence/pkg/connector/client"
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/annotations"
+	"github.com/conductorone/baton-sdk/pkg/types/entitlement"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"go.uber.org/zap"
 )
@@ -39,4 +41,29 @@ func shouldIncludeUser(ctx context.Context, user client.ConfluenceUser) bool {
 		return false
 	}
 	return true
+}
+
+func confluencePrincipalType(resourceTypeId string) (string, error) {
+	switch resourceTypeId {
+	case "user":
+		return "USER", nil
+	case "group":
+		return "GROUP", nil
+	}
+	return "", fmt.Errorf("unsupported principal resource type: %s", resourceTypeId)
+}
+
+func NewPermissionEntitlement(resource *v2.Resource, id string, name string, entitlementOptions ...entitlement.EntitlementOption) *v2.Entitlement {
+	entitlement := v2.Entitlement_builder{
+		Id:          entitlement.NewEntitlementID(resource, id),
+		DisplayName: name,
+		Slug:        name,
+		Purpose:     v2.Entitlement_PURPOSE_VALUE_PERMISSION,
+		Resource:    resource,
+	}.Build()
+
+	for _, entitlementOption := range entitlementOptions {
+		entitlementOption(entitlement)
+	}
+	return entitlement
 }
