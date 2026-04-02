@@ -53,6 +53,7 @@ func getConnector(ctx context.Context, config *cfg.Confluence) (types.ConnectorS
 		config.DomainUrl,
 		config.Username,
 		config.SkipPersonalSpaces,
+		config.UseRbac,
 		config.Noun,
 		config.Verb,
 	)

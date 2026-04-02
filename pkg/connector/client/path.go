@@ -17,6 +17,9 @@ const (
 	SpacesListUrlPath             = "/wiki/api/v2/spaces"
 	spacesGetUrlPath              = "/wiki/api/v2/spaces/%s"
 	SpacePermissionsListUrlPath   = "/wiki/api/v2/spaces/%s/permissions"
+	SpaceRolesUrlPath             = "/wiki/api/v2/space-roles"
+	SpaceRoleAssignmentsUrlPath   = "/wiki/api/v2/spaces/%s/role-assignments"
+	SpaceRoleModeUrlPath          = "/wiki/api/v2/space-role-mode"
 
 	defaultSize = 100
 )

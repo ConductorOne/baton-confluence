@@ -1,0 +1,26 @@
+{
+  "results": [
+    {
+      "id": "role-001",
+      "type": "DEFAULT",
+      "name": "Viewer",
+      "description": "View content in spaces",
+      "spacePermissions": ["read-space"]
+    },
+    {
+      "id": "role-002",
+      "type": "DEFAULT",
+      "name": "Editor",
+      "description": "Create and edit content in spaces",
+      "spacePermissions": ["read-space", "create-page"]
+    },
+    {
+      "id": "role-003",
+      "type": "DEFAULT",
+      "name": "Admin",
+      "description": "Administer spaces",
+      "spacePermissions": ["read-space", "create-page", "administer-space"]
+    }
+  ],
+  "_links": {}
+}

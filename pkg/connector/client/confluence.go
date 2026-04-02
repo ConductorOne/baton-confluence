@@ -95,6 +95,30 @@ func (c *ConfluenceClient) Verify(ctx context.Context) error {
 	return nil
 }
 
+// VerifyRbac validates credentials by hitting the v2 space-role-mode endpoint.
+// Use this instead of Verify when the connector is configured for RBAC mode,
+// as those credentials may only have access to the v2 API.
+func (c *ConfluenceClient) VerifyRbac(ctx context.Context) error {
+	spaceRoleModeUrl, err := c.parse(SpaceRoleModeUrlPath)
+	if err != nil {
+		return err
+	}
+
+	var response *SpaceRoleModeResponse
+	_, err = c.get(ctx, spaceRoleModeUrl, &response)
+	if err != nil {
+		return err
+	}
+
+	// Valid values: ROLES_TRANSITION, ROLES. If the mode is PRE_ROLE, then RBAC is not enabled for this Confluence instance.
+	// https://developer.atlassian.com/cloud/confluence/rest/v2/api-group-space-roles/#api-space-role-mode-get
+	if response.Mode == "PRE_ROLE" {
+		return fmt.Errorf("confluence-connector: space role mode is %q — RBAC is not enabled for this Confluence instance", response.Mode)
+	}
+
+	return nil
+}
+
 func isThereAnotherPage(links ConfluenceLink) bool {
 	return links.Next != ""
 }
@@ -568,6 +592,111 @@ func extractPaginationCursor(links ConfluenceLink) string {
 		return ""
 	}
 	return parsedUrl.Query().Get("cursor")
+}
+
+// GetSpaceRoles fetches space roles from the v2 API, optionally filtered by spaceId.
+func (c *ConfluenceClient) GetSpaceRoles(
+	ctx context.Context,
+	spaceId string,
+	cursor string,
+	pageSize int,
+) (
+	[]SpaceRole,
+	string,
+	*v2.RateLimitDescription,
+	error,
+) {
+	options := []Option{withPaginationCursor(pageSize, cursor)}
+	if spaceId != "" {
+		options = append(options, withQueryParameters(map[string]interface{}{"space-id": spaceId}))
+	}
+
+	spaceRolesUrl, err := c.parse(SpaceRolesUrlPath, options...)
+	if err != nil {
+		return nil, "", nil, err
+	}
+
+	var response *SpaceRolesResponse
+	ratelimitData, err := c.get(ctx, spaceRolesUrl, &response)
+	if err != nil {
+		return nil, "", ratelimitData, err
+	}
+
+	nextCursor := extractPaginationCursor(response.Links)
+	return response.Results, nextCursor, ratelimitData, nil
+}
+
+// GetSpaceRoleAssignments fetches role assignments for a given space.
+// roleId, principalId, and principalType are optional filters; pass empty string to omit.
+func (c *ConfluenceClient) GetSpaceRoleAssignments(
+	ctx context.Context,
+	spaceId string,
+	roleId string,
+	principalId string,
+	principalType string,
+	cursor string,
+	pageSize int,
+) (
+	[]SpaceRoleAssignment,
+	string,
+	*v2.RateLimitDescription,
+	error,
+) {
+	options := []Option{withPaginationCursor(pageSize, cursor)}
+	if roleId != "" {
+		options = append(options, withQueryParameters(map[string]interface{}{"role-id": roleId}))
+	}
+	if principalId != "" {
+		options = append(options, withQueryParameters(map[string]interface{}{"principal-id": principalId}))
+	}
+	if principalType != "" {
+		options = append(options, withQueryParameters(map[string]interface{}{"principal-type": principalType}))
+	}
+
+	assignmentsUrl, err := c.parse(
+		fmt.Sprintf(SpaceRoleAssignmentsUrlPath, url.PathEscape(spaceId)),
+		options...,
+	)
+	if err != nil {
+		return nil, "", nil, err
+	}
+
+	var response *SpaceRoleAssignmentsResponse
+	ratelimitData, err := c.get(ctx, assignmentsUrl, &response)
+	if err != nil {
+		return nil, "", ratelimitData, err
+	}
+
+	nextCursor := extractPaginationCursor(response.Links)
+	return response.Results, nextCursor, ratelimitData, nil
+}
+
+// SetSpaceRoleAssignment adds role assignments for a space.
+func (c *ConfluenceClient) SetSpaceRoleAssignment(
+	ctx context.Context,
+	spaceId string,
+	assignments []SetSpaceRoleAssignmentRequest,
+) (
+	*v2.RateLimitDescription,
+	error,
+) {
+	assignmentsUrl, err := c.parse(fmt.Sprintf(SpaceRoleAssignmentsUrlPath, url.PathEscape(spaceId)))
+	if err != nil {
+		return nil, err
+	}
+
+	bodyBytes, err := json.Marshal(assignments)
+	if err != nil {
+		return nil, err
+	}
+
+	body := strings.NewReader(string(bodyBytes))
+	var response SpaceRoleAssignmentsResponse
+	ratelimitData, err := c.post(ctx, assignmentsUrl, &response, body)
+	if err != nil {
+		return ratelimitData, err
+	}
+	return ratelimitData, nil
 }
 
 // GetUsersFromSearch There are no official, documented ways to get lists of

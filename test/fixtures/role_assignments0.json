@@ -1,0 +1,17 @@
+{
+  "results": [
+    {
+      "principal": {"principalType": "USER", "principalId": "user-123"},
+      "roleId": "role-001"
+    },
+    {
+      "principal": {"principalType": "GROUP", "principalId": "group-456"},
+      "roleId": "role-002"
+    },
+    {
+      "principal": {"principalType": "USER", "principalId": "user-789"},
+      "roleId": "role-003"
+    }
+  ],
+  "_links": {}
+}
