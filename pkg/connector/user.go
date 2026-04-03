@@ -17,7 +17,8 @@ const (
 	// Confluence Cloud v1 API group endpoints default to 1000 with no
 	// documented hard maximum. Previously 25; increased to reduce API
 	// calls during the 2D user-listing scheme (groups → members).
-	GroupPageSizeMaximum = 500
+	// The membersByGroupId endpoint enforces a maximum of 200.
+	GroupPageSizeMaximum = 200
 )
 
 type userResourceType struct {

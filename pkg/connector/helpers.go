@@ -11,8 +11,8 @@ import (
 )
 
 // ResourcesPageSize controls the default page size for v1 API list operations.
-// Confluence Cloud v1 API defaults to 1000 with no documented hard maximum.
-const ResourcesPageSize = 500
+// The membersByGroupId endpoint enforces a maximum of 200.
+const ResourcesPageSize = 200
 
 func annotationsForUserResourceType() annotations.Annotations {
 	annos := annotations.Annotations{}
