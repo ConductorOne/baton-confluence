@@ -55,10 +55,16 @@ func (c *ConfluenceClient) makeRequest(
 
 	ratelimitData := v2.RateLimitDescription{}
 
+	doOpts := []uhttp.DoOption{
+		WithConfluenceRatelimitData(&ratelimitData),
+	}
+	if target != nil {
+		doOpts = append(doOpts, uhttp.WithJSONResponse(target))
+	}
+
 	response, err := c.wrapper.Do(
 		req,
-		WithConfluenceRatelimitData(&ratelimitData),
-		uhttp.WithJSONResponse(target),
+		doOpts...,
 	)
 	if err == nil {
 		return &ratelimitData, nil
