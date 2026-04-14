@@ -18,6 +18,11 @@ sidebarTitle: "Atlassian Confluence"
 | Groups | <Icon icon="square-check" iconType="solid"  color="#c937ae"/> | <Icon icon="square-check" iconType="solid"  color="#c937ae"/> |
 | Spaces | <Icon icon="square-check" iconType="solid"  color="#c937ae"/> |  |
 | Space permissions | <Icon icon="square-check" iconType="solid"  color="#c937ae"/> | <Icon icon="square-check" iconType="solid"  color="#c937ae"/> |
+| Space roles (RBAC) | <Icon icon="square-check" iconType="solid"  color="#c937ae"/> | <Icon icon="square-check" iconType="solid"  color="#c937ae"/> |
+
+<Note>
+Space permissions and space roles are mutually exclusive. By default, the connector syncs granular space permissions. Enable the **Use RBAC** setting to sync RBAC space roles instead. See [Confluence RBAC space roles](#confluence-rbac-space-roles) for details.
+</Note>
 
 <Tip>
 To limit sync times, a limited list of Spaces entitlements and their associated grants are synced. See the [Spaces entitlements synced by default](/baton/confluence#spaces-entitlements-synced-by-default) section of this page for more information.
@@ -103,6 +108,9 @@ A user with **Administrator** access in Confluence must perform this task.
     </Step>
     <Step>
     **Optional.** If want to sync information on Confluence users' personal spaces and their permissions, uncheck the **Skip syncing personal spaces and their permissions** box.
+    </Step>
+    <Step>
+    **Optional.** If your Confluence instance uses RBAC space roles, enable the **Use RBAC** setting to sync space roles instead of granular space permissions. See [Confluence RBAC space roles](#confluence-rbac-space-roles) for details.
     </Step>
     <Step>
     Click **Save**.
@@ -268,4 +276,13 @@ Not all target-operator (noun-verb) pairs are valid.
 
 To change or limit what the Confluence connector syncs to C1, use the `--noun` and `--verb` flags when setting up the Confluence connector in self-hosted mode. See the [baton-confluence repo's README](https://github.com/conductorone/baton-confluence) for more information.
 
+## Confluence RBAC space roles
+
+Confluence is transitioning to a role-based access control (RBAC) model for space permissions. The Confluence connector supports both the legacy granular permissions model and the newer RBAC model.
+
+When the **Use RBAC** setting (or the `--use-rbac` flag in self-hosted mode) is enabled, the connector syncs **space roles** as entitlements rather than granular operation-target permission pairs. Role assignments to users and groups are synced as grants. Provisioning (granting and revoking access) operates on space role assignments.
+
+<Note>
+Space permissions and RBAC space roles are mutually exclusive. Enable **Use RBAC** only if your Confluence instance has space roles active. When in doubt, leave this setting disabled to use the default granular permissions model.
+</Note>
 
