@@ -10,6 +10,7 @@ type Confluence struct {
 	SkipPersonalSpaces bool `mapstructure:"skip-personal-spaces"`
 	Noun []string `mapstructure:"noun"`
 	Verb []string `mapstructure:"verb"`
+	UseRbac bool `mapstructure:"use-rbac"`
 }
 
 func (c *Confluence) findFieldByTag(tagValue string) (any, bool) {

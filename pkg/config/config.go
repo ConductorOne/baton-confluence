@@ -45,6 +45,12 @@ var (
 		field.WithDisplayName("Verbs"),
 		field.WithRequired(false),
 	)
+	useRbacField = field.BoolField(
+		"use-rbac",
+		field.WithDescription("Use Confluence RBAC space roles instead of granular space permissions"),
+		field.WithDisplayName("Use RBAC"),
+		field.WithDefaultValue(false),
+	)
 )
 
 var ConfigurationFields = []field.SchemaField{
@@ -54,6 +60,7 @@ var ConfigurationFields = []field.SchemaField{
 	skipPersonalSpaces,
 	nounsField,
 	verbsField,
+	useRbacField,
 }
 
 var Configuration = field.NewConfiguration(
