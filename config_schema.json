@@ -139,6 +139,9 @@
       "displayName": "Nouns",
       "description": "The nouns for your Confluence Space sync",
       "stringSliceField": {
+        "defaultValue": [
+          "space"
+        ],
         "rules": {}
       }
     },
@@ -147,6 +150,14 @@
       "displayName": "Verbs",
       "description": "The verbs for your Confluence Space sync",
       "stringSliceField": {
+        "defaultValue": [
+          "administer",
+          "create",
+          "delete",
+          "export",
+          "read",
+          "restrict_content"
+        ],
         "rules": {}
       }
     }
