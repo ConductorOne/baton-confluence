@@ -5,6 +5,19 @@ import (
 	"github.com/conductorone/baton-sdk/pkg/field"
 )
 
+var defaultNouns = []string{
+	"space",
+}
+
+var defaultVerbs = []string{
+	"administer",
+	"create",
+	"delete",
+	"export",
+	"read",
+	"restrict_content",
+}
+
 var (
 	apiKeyField = field.StringField(
 		"api-key",
@@ -37,12 +50,14 @@ var (
 		"noun",
 		field.WithDescription("The nouns for your Confluence Space sync"),
 		field.WithDisplayName("Nouns"),
+		field.WithDefaultValue(defaultNouns),
 		field.WithRequired(false),
 	)
 	verbsField = field.StringSliceField(
 		"verb",
 		field.WithDescription("The verbs for your Confluence Space sync"),
 		field.WithDisplayName("Verbs"),
+		field.WithDefaultValue(defaultVerbs),
 		field.WithRequired(false),
 	)
 )
