@@ -11,11 +11,13 @@ var defaultNouns = []string{
 
 var defaultVerbs = []string{
 	"administer",
+	"archive",
 	"create",
 	"delete",
 	"export",
 	"read",
 	"restrict_content",
+	"update",
 }
 
 var (
