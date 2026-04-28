@@ -38,6 +38,17 @@ var (
 		DisplayName: "Space",
 		Traits:      []v2.ResourceType_Trait{},
 	}
+	spaceRoleResourceType = &v2.ResourceType{
+		Id:          "space_role",
+		DisplayName: "Space Role",
+		Traits:      []v2.ResourceType_Trait{v2.ResourceType_TRAIT_ROLE},
+	}
+	spaceRoleAssignmentResourceType = &v2.ResourceType{
+		Id:          "space_role_assignment",
+		DisplayName: "Space Role Assignment",
+		Traits:      []v2.ResourceType_Trait{v2.ResourceType_TRAIT_SCOPE_BINDING},
+		Annotations: annotationsSkipEntitlements(),
+	}
 )
 
 type Config struct {
@@ -179,9 +190,14 @@ func (c *Confluence) Asset(ctx context.Context, asset *v2.AssetRef) (string, io.
 }
 
 func (c *Confluence) ResourceSyncers(ctx context.Context) []connectorbuilder.ResourceSyncer {
-	return []connectorbuilder.ResourceSyncer{
+	syncers := []connectorbuilder.ResourceSyncer{
 		groupBuilder(c.client),
 		userBuilder(c.client),
 		newSpaceBuilder(c.client, c.skipPersonalSpaces, c.useRbac, c.nouns, c.verbs),
 	}
+	if c.useRbac {
+		syncers = append(syncers, newSpaceRoleBuilder(c.client))
+		syncers = append(syncers, newSpaceRoleAssignmentBuilder(c.client))
+	}
+	return syncers
 }

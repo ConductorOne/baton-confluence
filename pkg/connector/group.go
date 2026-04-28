@@ -180,14 +180,14 @@ func (o *groupResourceType) Grant(
 	ctx context.Context,
 	principal *v2.Resource,
 	entitlement *v2.Entitlement,
-) (annotations.Annotations, error) {
+) ([]*v2.Grant, annotations.Annotations, error) {
 	ratelimitData, err := o.client.AddUserToGroup(
 		ctx,
 		principal.Id.Resource,
 		entitlement.Resource.Id.Resource,
 	)
 	outputAnnotations := WithRateLimitAnnotations(ratelimitData)
-	return outputAnnotations, err
+	return nil, outputAnnotations, err
 }
 
 func (o *groupResourceType) Revoke(

@@ -22,6 +22,12 @@ func annotationsForUserResourceType() annotations.Annotations {
 	return annos
 }
 
+func annotationsSkipEntitlements() annotations.Annotations {
+	annos := annotations.Annotations{}
+	annos.Update(&v2.SkipEntitlements{})
+	return annos
+}
+
 func WithRateLimitAnnotations(
 	ratelimitDescriptionAnnotations ...*v2.RateLimitDescription,
 ) annotations.Annotations {

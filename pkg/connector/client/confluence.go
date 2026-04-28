@@ -594,6 +594,23 @@ func extractPaginationCursor(links ConfluenceLink) string {
 	return parsedUrl.Query().Get("cursor")
 }
 
+// GetSpaceById fetches a single space by its ID.
+func (c *ConfluenceClient) GetSpaceById(
+	ctx context.Context,
+	spaceId string,
+) (*ConfluenceSpace, *v2.RateLimitDescription, error) {
+	spaceUrl, err := c.parse(fmt.Sprintf(spacesGetUrlPath, spaceId))
+	if err != nil {
+		return nil, nil, err
+	}
+	var response ConfluenceSpace
+	ratelimitData, err := c.get(ctx, spaceUrl, &response)
+	if err != nil {
+		return nil, ratelimitData, err
+	}
+	return &response, ratelimitData, nil
+}
+
 // GetSpaceRoles fetches space roles from the v2 API, optionally filtered by spaceId.
 func (c *ConfluenceClient) GetSpaceRoles(
 	ctx context.Context,

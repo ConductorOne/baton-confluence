@@ -71,7 +71,7 @@ func (o *spaceBuilder) List(
 		if o.skipPersonalSpaces && spaceCopy.Type == "personal" {
 			continue
 		}
-		ur, err := spaceResource(ctx, &spaceCopy)
+		ur, err := spaceResource(ctx, &spaceCopy, o.useRbac)
 		if err != nil {
 			return nil, "", nil, err
 		}
@@ -93,29 +93,7 @@ func (o *spaceBuilder) Entitlements(
 	error,
 ) {
 	if o.useRbac {
-		roles, nextCursor, ratelimitData, err := o.client.GetSpaceRoles(
-			ctx,
-			"",
-			pToken.Token,
-			ResourcesPageSize,
-		)
-		outputAnnotations := WithRateLimitAnnotations(ratelimitData)
-		if err != nil {
-			return nil, "", outputAnnotations, fmt.Errorf("confluence-connector: failed to list space roles: %w", err)
-		}
-
-		var entitlements []*v2.Entitlement
-		for _, role := range roles {
-			entitlements = append(entitlements, NewPermissionEntitlement(
-				res,
-				role.Id,
-				role.Name,
-				entitlement.WithGrantableTo(resourceTypeUser, resourceTypeGroup),
-				entitlement.WithDisplayName(fmt.Sprintf("%s role", role.Name)),
-				entitlement.WithDescription(fmt.Sprintf("Has the %s role in Confluence space %s", role.Name, res.DisplayName)),
-			))
-		}
-		return entitlements, nextCursor, outputAnnotations, nil
+		return nil, "", nil, nil
 	}
 
 	entitlements := make([]*v2.Entitlement, 0)
@@ -168,51 +146,7 @@ func (o *spaceBuilder) Grants(
 	error,
 ) {
 	if o.useRbac {
-		assignments, nextCursor, ratelimitData, err := o.client.GetSpaceRoleAssignments(
-			ctx,
-			res.Id.Resource,
-			"",
-			"",
-			"",
-			pToken.Token,
-			pToken.Size,
-		)
-		outputAnnotations := WithRateLimitAnnotations(ratelimitData)
-		if err != nil {
-			return nil, "", outputAnnotations, fmt.Errorf("confluence-connector: failed to list space role assignments: %w", err)
-		}
-
-		var grants []*v2.Grant
-		for _, assignment := range assignments {
-			var resourceType string
-			var grantOpts []grantSdk.GrantOption
-
-			switch assignment.Principal.PrincipalType {
-			case "USER":
-				resourceType = resourceTypeUser.Id
-			case "GROUP":
-				resourceType = resourceTypeGroup.Id
-				grantOpts = append(grantOpts, grantSdk.WithAnnotation(&v2.GrantExpandable{
-					EntitlementIds: []string{
-						fmt.Sprintf("group:%s:member", assignment.Principal.PrincipalId),
-					},
-				}))
-			default:
-				continue
-			}
-
-			grants = append(grants, grantSdk.NewGrant(
-				res,
-				assignment.RoleId,
-				&v2.ResourceId{
-					ResourceType: resourceType,
-					Resource:     assignment.Principal.PrincipalId,
-				},
-				grantOpts...,
-			))
-		}
-
-		return grants, nextCursor, outputAnnotations, nil
+		return nil, "", nil, nil
 	}
 
 	permissionsList, nextToken, ratelimitData, err := o.client.GetSpacePermissions(
@@ -264,50 +198,7 @@ func (o *spaceBuilder) Grant(
 	ctx context.Context,
 	principal *v2.Resource,
 	ent *v2.Entitlement,
-) (annotations.Annotations, error) {
-	if o.useRbac {
-		spaceId := ent.Resource.Id.Resource
-		parts := strings.SplitN(ent.Id, ":", 3)
-		if len(parts) < 3 {
-			return nil, fmt.Errorf("confluence-connector: invalid entitlement ID: %q", ent.Id)
-		}
-		roleId := parts[2]
-
-		principalType, err := confluencePrincipalType(principal.Id.ResourceType)
-		if err != nil {
-			return nil, fmt.Errorf("confluence-connector: %w", err)
-		}
-
-		principalId := principal.Id.Resource
-
-		existing, _, _, err := o.client.GetSpaceRoleAssignments(ctx, spaceId, roleId, principalId, principalType, "", 1)
-		if err != nil {
-			return nil, fmt.Errorf("confluence-connector: failed to check existing role assignments: %w", err)
-		}
-		if len(existing) > 0 {
-			return annotations.New(&v2.GrantAlreadyExists{}), nil
-		}
-
-		ratelimitData, err := o.client.SetSpaceRoleAssignment(
-			ctx,
-			spaceId,
-			[]client.SetSpaceRoleAssignmentRequest{
-				{
-					Principal: client.SpaceRoleAssignmentPrincipal{
-						PrincipalType: principalType,
-						PrincipalId:   principalId,
-					},
-					RoleId: roleId,
-				},
-			},
-		)
-		outputAnnotations := WithRateLimitAnnotations(ratelimitData)
-		if err != nil {
-			return outputAnnotations, fmt.Errorf("confluence-connector: failed to grant space role: %w", err)
-		}
-		return outputAnnotations, nil
-	}
-
+) ([]*v2.Grant, annotations.Annotations, error) {
 	spaceName := ent.Resource.Id.Resource
 	key, target := GetEntitlementComponents(ent.Slug)
 	ratelimitData, err := o.client.AddSpacePermission(
@@ -319,56 +210,13 @@ func (o *spaceBuilder) Grant(
 		principal.Id.ResourceType,
 	)
 	outputAnnotations := WithRateLimitAnnotations(ratelimitData)
-	return outputAnnotations, err
+	return nil, outputAnnotations, err
 }
 
 func (o *spaceBuilder) Revoke(
 	ctx context.Context,
 	grant *v2.Grant,
 ) (annotations.Annotations, error) {
-	if o.useRbac {
-		spaceId := grant.Entitlement.Resource.Id.Resource
-		parts := strings.SplitN(grant.Entitlement.Id, ":", 3)
-		if len(parts) < 3 {
-			return nil, fmt.Errorf("confluence-connector: invalid entitlement ID: %q", grant.Entitlement.Id)
-		}
-		roleId := parts[2]
-
-		principalType, err := confluencePrincipalType(grant.Principal.Id.ResourceType)
-		if err != nil {
-			return nil, fmt.Errorf("confluence-connector: %w", err)
-		}
-
-		principalId := grant.Principal.Id.Resource
-
-		existing, _, _, err := o.client.GetSpaceRoleAssignments(ctx, spaceId, roleId, principalId, principalType, "", 1)
-		if err != nil {
-			return nil, fmt.Errorf("confluence-connector: failed to check existing role assignments: %w", err)
-		}
-		if len(existing) == 0 {
-			return annotations.New(&v2.GrantAlreadyRevoked{}), nil
-		}
-
-		ratelimitData, err := o.client.SetSpaceRoleAssignment(
-			ctx,
-			spaceId,
-			[]client.SetSpaceRoleAssignmentRequest{
-				{
-					Principal: client.SpaceRoleAssignmentPrincipal{
-						PrincipalType: principalType,
-						PrincipalId:   principalId,
-					},
-					// RoleId intentionally omitted: signals removal to the API
-				},
-			},
-		)
-		outputAnnotations := WithRateLimitAnnotations(ratelimitData)
-		if err != nil {
-			return outputAnnotations, fmt.Errorf("confluence-connector: failed to revoke space role: %w", err)
-		}
-		return outputAnnotations, nil
-	}
-
 	spaceId := grant.Entitlement.Resource.Id.Resource
 	key, target := GetEntitlementComponents(grant.Entitlement.Slug)
 	ratelimitData, err := o.client.RemoveSpacePermission(
@@ -393,10 +241,12 @@ func newSpaceBuilder(client *client.ConfluenceClient, skipPersonalSpaces bool, u
 	}
 }
 
-func spaceResource(ctx context.Context, space *client.ConfluenceSpace) (*v2.Resource, error) {
-	return resource.NewResource(
-		space.Name,
-		spaceResourceType,
-		space.Id,
-	)
+func spaceResource(ctx context.Context, space *client.ConfluenceSpace, useRbac bool) (*v2.Resource, error) {
+	opts := []resource.ResourceOption{}
+	if useRbac {
+		opts = append(opts, resource.WithAnnotation(&v2.ChildResourceType{
+			ResourceTypeId: spaceRoleAssignmentResourceType.Id,
+		}))
+	}
+	return resource.NewResource(space.Name, spaceResourceType, space.Id, opts...)
 }
