@@ -157,6 +157,9 @@ func (b *spaceRoleAssignmentBuilder) Grants(
 	if err != nil {
 		return nil, "", nil, fmt.Errorf("confluence-connector: failed to get scope binding trait: %w", err)
 	}
+	if scopeTrait == nil {
+		return nil, "", nil, fmt.Errorf("confluence-connector: scope binding trait was not found on resource")
+	}
 
 	spaceID := scopeTrait.GetScopeResourceId().GetResource()
 	roleID := scopeTrait.GetRoleId().GetResource()
@@ -251,7 +254,8 @@ func (b *spaceRoleAssignmentBuilder) Grant(
 	if err != nil {
 		return nil, outputAnnotations, fmt.Errorf("confluence-connector: failed to grant space role: %w", err)
 	}
-	return nil, outputAnnotations, nil
+	g := grantSdk.NewGrant(resource, spaceRoleAssignmentEntitlement, principal.Id)
+	return []*v2.Grant{g}, outputAnnotations, nil
 }
 
 func (b *spaceRoleAssignmentBuilder) Revoke(

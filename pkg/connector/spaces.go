@@ -210,7 +210,11 @@ func (o *spaceBuilder) Grant(
 		principal.Id.ResourceType,
 	)
 	outputAnnotations := WithRateLimitAnnotations(ratelimitData)
-	return nil, outputAnnotations, err
+	if err != nil {
+		return nil, outputAnnotations, err
+	}
+	g := grantSdk.NewGrant(ent.Resource, ent.Slug, principal.Id)
+	return []*v2.Grant{g}, outputAnnotations, nil
 }
 
 func (o *spaceBuilder) Revoke(
