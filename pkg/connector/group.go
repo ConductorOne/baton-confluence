@@ -187,7 +187,11 @@ func (o *groupResourceType) Grant(
 		entitlement.Resource.Id.Resource,
 	)
 	outputAnnotations := WithRateLimitAnnotations(ratelimitData)
-	return nil, outputAnnotations, err
+	if err != nil {
+		return nil, outputAnnotations, err
+	}
+	g := grant.NewGrant(entitlement.Resource, groupMemberEntitlement, principal.Id)
+	return []*v2.Grant{g}, outputAnnotations, nil
 }
 
 func (o *groupResourceType) Revoke(

@@ -17,16 +17,20 @@ import (
 const (
 	accountTypeAtlassian = "atlassian" // user account type
 	accountTypeApp       = "app"       // bot account type
+
+	resourceTypeGroupID = "group"
+	resourceTypeUserID  = "user"
+	resourceTypeSpaceID = "space"
 )
 
 var (
 	resourceTypeGroup = &v2.ResourceType{
-		Id:          "group",
+		Id:          resourceTypeGroupID,
 		DisplayName: "Group",
 		Traits:      []v2.ResourceType_Trait{v2.ResourceType_TRAIT_GROUP},
 	}
 	resourceTypeUser = &v2.ResourceType{
-		Id:          "user",
+		Id:          resourceTypeUserID,
 		DisplayName: "User",
 		Traits: []v2.ResourceType_Trait{
 			v2.ResourceType_TRAIT_USER,
@@ -34,7 +38,7 @@ var (
 		Annotations: annotationsForUserResourceType(),
 	}
 	spaceResourceType = &v2.ResourceType{
-		Id:          "space",
+		Id:          resourceTypeSpaceID,
 		DisplayName: "Space",
 		Traits:      []v2.ResourceType_Trait{},
 	}
@@ -73,7 +77,7 @@ var defaultNouns = []string{
 	"blogpost",
 	"comment",
 	"page",
-	"space",
+	resourceTypeSpaceID,
 }
 
 var defaultVerbs = []string{

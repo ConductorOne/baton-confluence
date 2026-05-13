@@ -168,9 +168,9 @@ func (o *spaceBuilder) Grants(
 		grantOpts := []grantSdk.GrantOption{}
 		var resourceType string
 		switch permission.Principal.Type {
-		case "user":
+		case resourceTypeUserID:
 			resourceType = resourceTypeUser.Id
-		case "group":
+		case resourceTypeGroupID:
 			resourceType = resourceTypeGroup.Id
 			grantOpts = append(grantOpts, grantSdk.WithAnnotation(&v2.GrantExpandable{
 				EntitlementIds: []string{

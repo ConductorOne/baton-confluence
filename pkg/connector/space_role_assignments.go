@@ -11,6 +11,8 @@ import (
 	"github.com/conductorone/baton-sdk/pkg/types/entitlement"
 	grantSdk "github.com/conductorone/baton-sdk/pkg/types/grant"
 	rs "github.com/conductorone/baton-sdk/pkg/types/resource"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/conductorone/baton-confluence/pkg/connector/client"
 )
@@ -206,18 +208,21 @@ func (b *spaceRoleAssignmentBuilder) Grant(
 ) ([]*v2.Grant, annotations.Annotations, error) {
 	resource := ent.GetResource()
 	if resource == nil {
-		return nil, nil, fmt.Errorf("confluence-connector: entitlement resource is nil")
+		return nil, nil, status.Error(codes.InvalidArgument, "confluence-connector: entitlement resource is nil")
 	}
 	scopeTrait, err := rs.GetScopeBindingTrait(resource)
 	if err != nil {
-		return nil, nil, fmt.Errorf("confluence-connector: failed to get scope binding trait: %w", err)
+		return nil, nil, status.Errorf(codes.InvalidArgument, "confluence-connector: failed to get scope binding trait: %v", err)
+	}
+	if scopeTrait == nil {
+		return nil, nil, status.Errorf(codes.InvalidArgument, "confluence-connector: scope binding trait was not found on resource")
 	}
 	spaceID := scopeTrait.GetScopeResourceId().GetResource()
 	roleID := scopeTrait.GetRoleId().GetResource()
 
 	principalType, err := confluencePrincipalType(principal.Id.ResourceType)
 	if err != nil {
-		return nil, nil, fmt.Errorf("confluence-connector: %w", err)
+		return nil, nil, status.Errorf(codes.InvalidArgument, "confluence-connector: %v", err)
 	}
 	principalID := principal.Id.Resource
 
@@ -255,18 +260,18 @@ func (b *spaceRoleAssignmentBuilder) Revoke(
 ) (annotations.Annotations, error) {
 	resource := grant.GetEntitlement().GetResource()
 	if resource == nil {
-		return nil, fmt.Errorf("confluence-connector: grant entitlement resource is nil")
+		return nil, status.Error(codes.InvalidArgument, "confluence-connector: grant entitlement resource is nil")
 	}
 	scopeTrait, err := rs.GetScopeBindingTrait(resource)
 	if err != nil {
-		return nil, fmt.Errorf("confluence-connector: failed to get scope binding trait: %w", err)
+		return nil, status.Errorf(codes.InvalidArgument, "confluence-connector: failed to get scope binding trait: %v", err)
 	}
 	spaceID := scopeTrait.GetScopeResourceId().GetResource()
 	roleID := scopeTrait.GetRoleId().GetResource()
 
 	principalType, err := confluencePrincipalType(grant.Principal.Id.ResourceType)
 	if err != nil {
-		return nil, fmt.Errorf("confluence-connector: %w", err)
+		return nil, status.Errorf(codes.InvalidArgument, "confluence-connector: %v", err)
 	}
 	principalID := grant.Principal.Id.Resource
 

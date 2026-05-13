@@ -37,7 +37,7 @@ func TestSpaces(t *testing.T) {
 			"blogpost",
 			"comment",
 			"page",
-			"space",
+			resourceTypeSpaceID,
 		},
 		[]string{
 			"administer",

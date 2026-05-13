@@ -51,9 +51,9 @@ func shouldIncludeUser(ctx context.Context, user client.ConfluenceUser) bool {
 
 func confluencePrincipalType(resourceTypeId string) (string, error) {
 	switch resourceTypeId {
-	case "user":
+	case resourceTypeUserID:
 		return "USER", nil
-	case "group":
+	case resourceTypeGroupID:
 		return "GROUP", nil
 	}
 	return "", fmt.Errorf("unsupported principal resource type: %s", resourceTypeId)
