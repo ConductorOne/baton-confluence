@@ -148,7 +148,9 @@ type EventSourceMappingMetric string
 
 // Enum values for EventSourceMappingMetric
 const (
-	EventSourceMappingMetricEventCount EventSourceMappingMetric = "EventCount"
+	EventSourceMappingMetricEventCount   EventSourceMappingMetric = "EventCount"
+	EventSourceMappingMetricErrorCount   EventSourceMappingMetric = "ErrorCount"
+	EventSourceMappingMetricKafkaMetrics EventSourceMappingMetric = "KafkaMetrics"
 )
 
 // Values returns all known values for EventSourceMappingMetric. Note that this
@@ -158,6 +160,30 @@ const (
 func (EventSourceMappingMetric) Values() []EventSourceMappingMetric {
 	return []EventSourceMappingMetric{
 		"EventCount",
+		"ErrorCount",
+		"KafkaMetrics",
+	}
+}
+
+type EventSourceMappingSystemLogLevel string
+
+// Enum values for EventSourceMappingSystemLogLevel
+const (
+	EventSourceMappingSystemLogLevelDebug EventSourceMappingSystemLogLevel = "DEBUG"
+	EventSourceMappingSystemLogLevelInfo  EventSourceMappingSystemLogLevel = "INFO"
+	EventSourceMappingSystemLogLevelWarn  EventSourceMappingSystemLogLevel = "WARN"
+)
+
+// Values returns all known values for EventSourceMappingSystemLogLevel. Note that
+// this can be expanded in the future, and so it is only as up to date as the
+// client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (EventSourceMappingSystemLogLevel) Values() []EventSourceMappingSystemLogLevel {
+	return []EventSourceMappingSystemLogLevel{
+		"DEBUG",
+		"INFO",
+		"WARN",
 	}
 }
 
@@ -499,6 +525,7 @@ const (
 	LastUpdateStatusReasonCodeFunctionErrorPermissionDenied        LastUpdateStatusReasonCode = "FunctionError.PermissionDenied"
 	LastUpdateStatusReasonCodeFunctionErrorTooManyExtensions       LastUpdateStatusReasonCode = "FunctionError.TooManyExtensions"
 	LastUpdateStatusReasonCodeFunctionErrorInitResourceExhausted   LastUpdateStatusReasonCode = "FunctionError.InitResourceExhausted"
+	LastUpdateStatusReasonCodeDisallowedByVpcEncryptionControl     LastUpdateStatusReasonCode = "DisallowedByVpcEncryptionControl"
 )
 
 // Values returns all known values for LastUpdateStatusReasonCode. Note that this
@@ -540,6 +567,7 @@ func (LastUpdateStatusReasonCode) Values() []LastUpdateStatusReasonCode {
 		"FunctionError.PermissionDenied",
 		"FunctionError.TooManyExtensions",
 		"FunctionError.InitResourceExhausted",
+		"DisallowedByVpcEncryptionControl",
 	}
 }
 
@@ -792,6 +820,7 @@ const (
 	RuntimeNodejs24x      Runtime = "nodejs24.x"
 	RuntimePython314      Runtime = "python3.14"
 	RuntimeJava25         Runtime = "java25"
+	RuntimeDotnet10       Runtime = "dotnet10"
 )
 
 // Values returns all known values for Runtime. Note that this can be expanded in
@@ -844,6 +873,7 @@ func (Runtime) Values() []Runtime {
 		"nodejs24.x",
 		"python3.14",
 		"java25",
+		"dotnet10",
 	}
 }
 
@@ -1008,6 +1038,7 @@ const (
 	StateReasonCodeFunctionErrorPermissionDenied        StateReasonCode = "FunctionError.PermissionDenied"
 	StateReasonCodeFunctionErrorTooManyExtensions       StateReasonCode = "FunctionError.TooManyExtensions"
 	StateReasonCodeFunctionErrorInitResourceExhausted   StateReasonCode = "FunctionError.InitResourceExhausted"
+	StateReasonCodeDisallowedByVpcEncryptionControl     StateReasonCode = "DisallowedByVpcEncryptionControl"
 )
 
 // Values returns all known values for StateReasonCode. Note that this can be
@@ -1053,6 +1084,7 @@ func (StateReasonCode) Values() []StateReasonCode {
 		"FunctionError.PermissionDenied",
 		"FunctionError.TooManyExtensions",
 		"FunctionError.InitResourceExhausted",
+		"DisallowedByVpcEncryptionControl",
 	}
 }
 
