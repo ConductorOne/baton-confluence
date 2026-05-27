@@ -214,7 +214,7 @@ spec:
     spec:
       containers:
       - name: baton-confluence
-        image: ghcr.io/conductorone/baton-confluence:latest
+        image: public.ecr.aws/conductorone/baton-confluence:latest
         imagePullPolicy: IfNotPresent
         env:
         - name: BATON_HOST_ID
@@ -271,5 +271,3 @@ All available operators (verbs):
 Not all target-operator (noun-verb) pairs are valid.
 
 To change or limit what the Confluence connector syncs to C1, use the `--noun` and `--verb` flags when setting up the Confluence connector in self-hosted mode. See the [baton-confluence repo's README](https://github.com/conductorone/baton-confluence) for more information.
-
-
