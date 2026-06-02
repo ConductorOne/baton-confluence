@@ -287,6 +287,6 @@ Confluence is transitioning to a role-based access control (RBAC) model for spac
 When the **Use RBAC** setting (or the `--use-rbac` flag in self-hosted mode) is enabled, the connector syncs **space roles** as entitlements rather than granular operation-target permission pairs. Role assignments to users and groups are synced as grants. Provisioning (granting and revoking access) operates on space role assignments.
 
 <Note>
-Space permissions and RBAC space roles are mutually exclusive. Enable **Use RBAC** only if your Confluence instance has space roles active. When in doubt, leave this setting disabled to use the default granular permissions model.
+WARNING: Space permissions and RBAC space roles are mutually exclusive. Enable **Use RBAC** only if your Confluence instance has space roles active. When in doubt, leave this setting disabled to use the default granular permissions model.
 </Note>
 

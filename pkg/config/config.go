@@ -62,7 +62,7 @@ var (
 	)
 	useRbacField = field.BoolField(
 		"use-rbac",
-		field.WithDescription("Use Confluence RBAC space roles instead of granular space permissions"),
+		field.WithDescription("Use Confluence RBAC space roles INSTEAD of granular permissions. WARNING: This will cause the connector to stop granular permissions (noun x verb) from syncing."),
 		field.WithDisplayName("Use RBAC"),
 		field.WithDefaultValue(false),
 	)
