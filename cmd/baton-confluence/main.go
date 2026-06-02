@@ -3,69 +3,53 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
 
 	cfg "github.com/conductorone/baton-confluence/pkg/config"
 	"github.com/conductorone/baton-confluence/pkg/connector"
+	"github.com/conductorone/baton-sdk/pkg/cli"
 	sdkConfig "github.com/conductorone/baton-sdk/pkg/config"
 	"github.com/conductorone/baton-sdk/pkg/connectorbuilder"
-	"github.com/conductorone/baton-sdk/pkg/field"
-	"github.com/conductorone/baton-sdk/pkg/types"
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
-	"go.uber.org/zap"
+	"github.com/conductorone/baton-sdk/pkg/connectorrunner"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 var version = "dev"
 
 func main() {
 	ctx := context.Background()
-
-	_, cmd, err := sdkConfig.DefineConfiguration(
+	sdkConfig.RunConnector(
 		ctx,
 		"baton-confluence",
-		getConnector,
+		version,
 		cfg.Configuration,
+		getConnector,
+		connectorrunner.WithDefaultCapabilitiesConnectorBuilderV2(&connector.Confluence{}),
 	)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err.Error())
-		os.Exit(1)
-	}
-
-	cmd.Version = version
-
-	err = cmd.Execute()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err.Error())
-		os.Exit(1)
-	}
 }
 
-func getConnector(ctx context.Context, config *cfg.Confluence) (types.ConnectorServer, error) {
-	l := ctxzap.Extract(ctx)
-
-	if err := field.Validate(cfg.Configuration, config); err != nil {
-		return nil, err
+func getConnector(ctx context.Context, cc *cfg.Confluence, connectorOpts *cli.ConnectorOpts) (connectorbuilder.ConnectorBuilderV2, []connectorbuilder.Opt, error) {
+	if connectorOpts.SyncFilterIsExplicit() {
+		willSyncRbacTypes := connectorOpts.WillSyncResourceType(connector.SpaceRoleResourceTypeID) ||
+			connectorOpts.WillSyncResourceType(connector.SpaceRoleAssignmentResourceTypeID)
+		if willSyncRbacTypes && !cc.UseRbac {
+			return nil, nil, status.Error(codes.InvalidArgument, fmt.Sprintf("confluence-connector: use-rbac must be enabled when syncing %s or %s resource types",
+				connector.SpaceRoleResourceTypeID, connector.SpaceRoleAssignmentResourceTypeID))
+		}
 	}
 
 	cb, err := connector.New(
 		ctx,
-		config.ApiKey,
-		config.DomainUrl,
-		config.Username,
-		config.SkipPersonalSpaces,
-		config.UseRbac,
-		config.Noun,
-		config.Verb,
+		cc.ApiKey,
+		cc.DomainUrl,
+		cc.Username,
+		cc.SkipPersonalSpaces,
+		cc.UseRbac,
+		cc.Noun,
+		cc.Verb,
 	)
 	if err != nil {
-		l.Error("error creating connector", zap.Error(err))
-		return nil, err
+		return nil, nil, err
 	}
-
-	connector, err := connectorbuilder.NewConnector(ctx, cb)
-	if err != nil {
-		l.Error("error creating connector", zap.Error(err))
-		return nil, err
-	}
-	return connector, nil
+	return cb, nil, nil
 }

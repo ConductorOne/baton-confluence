@@ -8,6 +8,7 @@ import (
 	"github.com/conductorone/baton-confluence/test"
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/pagination"
+	"github.com/conductorone/baton-sdk/pkg/types/resource"
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/stretchr/testify/require"
 )
@@ -31,28 +32,20 @@ func TestUsersList(t *testing.T) {
 		c := userBuilder(confluenceClient)
 
 		resources := make([]*v2.Resource, 0)
-		bag := &pagination.Bag{}
+		pToken := pagination.Token{Size: 2}
 		for {
-			pToken := pagination.Token{Size: 2}
-			state := bag.Current()
-			if state != nil {
-				token, _ := bag.Marshal()
-				pToken.Token = token
-			}
-
-			nextResources, nextToken, listAnnotations, err := c.List(ctx, nil, &pToken)
+			nextResources, results, err := c.List(ctx, nil, resource.SyncOpAttrs{PageToken: pToken})
 			resources = append(resources, nextResources...)
 
 			require.Nil(t, err)
-			test.AssertNoRatelimitAnnotations(t, listAnnotations)
-			if nextToken == "" {
+			if results == nil {
 				break
 			}
-
-			err = bag.Unmarshal(nextToken)
-			if err != nil {
-				t.Error(err)
+			test.AssertNoRatelimitAnnotations(t, results.Annotations)
+			if results.NextPageToken == "" {
+				break
 			}
+			pToken.Token = results.NextPageToken
 		}
 
 		require.NotNil(t, resources)
@@ -62,8 +55,8 @@ func TestUsersList(t *testing.T) {
 		require.NotEmpty(t, resources[0].Id)
 
 		allIDs := mapset.NewSet[string]()
-		for _, resource := range resources {
-			allIDs.Add(resource.Id.Resource)
+		for _, r := range resources {
+			allIDs.Add(r.Id.Resource)
 		}
 		require.Equal(t, allIDs.Cardinality(), 3)
 	})

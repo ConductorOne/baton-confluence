@@ -160,6 +160,12 @@
         ],
         "rules": {}
       }
+    },
+    {
+      "name": "use-rbac",
+      "displayName": "Use RBAC",
+      "description": "Use Confluence RBAC space roles INSTEAD of granular permissions. WARNING: This will cause the connector to stop granular permissions (noun x verb) from syncing.",
+      "boolField": {}
     }
   ],
   "displayName": "Confluence",

@@ -8,6 +8,7 @@ import (
 	"github.com/conductorone/baton-confluence/test"
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/pagination"
+	"github.com/conductorone/baton-sdk/pkg/types/resource"
 	"github.com/stretchr/testify/require"
 )
 
@@ -33,15 +34,16 @@ func TestGroups(t *testing.T) {
 		resources := make([]*v2.Resource, 0)
 		pToken := pagination.Token{}
 		for {
-			nextResources, nextToken, listAnnotations, err := c.List(ctx, nil, &pToken)
+			nextResources, results, err := c.List(ctx, nil, resource.SyncOpAttrs{PageToken: pToken})
 			resources = append(resources, nextResources...)
 
 			require.Nil(t, err)
-			test.AssertNoRatelimitAnnotations(t, listAnnotations)
-			if nextToken == "" {
+			require.NotNil(t, results)
+			test.AssertNoRatelimitAnnotations(t, results.Annotations)
+			if results.NextPageToken == "" {
 				break
 			}
-			pToken.Token = nextToken
+			pToken.Token = results.NextPageToken
 		}
 
 		require.Len(t, resources, 2)
@@ -58,15 +60,16 @@ func TestGroups(t *testing.T) {
 		grants := make([]*v2.Grant, 0)
 		pToken := pagination.Token{}
 		for {
-			nextGrants, nextToken, grantAnnotations, err := c.Grants(ctx, group, &pToken)
+			nextGrants, results, err := c.Grants(ctx, group, resource.SyncOpAttrs{PageToken: pToken})
 			grants = append(grants, nextGrants...)
 
 			require.Nil(t, err)
-			test.AssertNoRatelimitAnnotations(t, grantAnnotations)
-			if nextToken == "" {
+			require.NotNil(t, results)
+			test.AssertNoRatelimitAnnotations(t, results.Annotations)
+			if results.NextPageToken == "" {
 				break
 			}
-			pToken.Token = nextToken
+			pToken.Token = results.NextPageToken
 		}
 		require.Len(t, grants, 2)
 		require.NotEmpty(t, grants[0].Id)

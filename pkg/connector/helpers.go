@@ -7,6 +7,7 @@ import (
 	"github.com/conductorone/baton-confluence/pkg/connector/client"
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/annotations"
+	"github.com/conductorone/baton-sdk/pkg/types/resource"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"go.uber.org/zap"
 )
@@ -21,9 +22,10 @@ func annotationsForUserResourceType() annotations.Annotations {
 	return annos
 }
 
-func annotationsSkipEntitlements() annotations.Annotations {
+func spaceRoleAssignmentsAnnotations() annotations.Annotations {
 	annos := annotations.Annotations{}
 	annos.Update(&v2.SkipEntitlements{})
+	annos.Update(&v2.OptInRequired{})
 	return annos
 }
 
@@ -46,6 +48,10 @@ func shouldIncludeUser(ctx context.Context, user client.ConfluenceUser) bool {
 		return false
 	}
 	return true
+}
+
+func syncResults(nextToken string, annos annotations.Annotations) *resource.SyncOpResults {
+	return &resource.SyncOpResults{NextPageToken: nextToken, Annotations: annos}
 }
 
 func confluencePrincipalType(resourceTypeId string) (string, error) {

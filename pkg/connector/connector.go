@@ -17,42 +17,6 @@ import (
 const (
 	accountTypeAtlassian = "atlassian" // user account type
 	accountTypeApp       = "app"       // bot account type
-
-	resourceTypeGroupID = "group"
-	resourceTypeUserID  = "user"
-	resourceTypeSpaceID = "space"
-)
-
-var (
-	resourceTypeGroup = &v2.ResourceType{
-		Id:          resourceTypeGroupID,
-		DisplayName: "Group",
-		Traits:      []v2.ResourceType_Trait{v2.ResourceType_TRAIT_GROUP},
-	}
-	resourceTypeUser = &v2.ResourceType{
-		Id:          resourceTypeUserID,
-		DisplayName: "User",
-		Traits: []v2.ResourceType_Trait{
-			v2.ResourceType_TRAIT_USER,
-		},
-		Annotations: annotationsForUserResourceType(),
-	}
-	spaceResourceType = &v2.ResourceType{
-		Id:          resourceTypeSpaceID,
-		DisplayName: "Space",
-		Traits:      []v2.ResourceType_Trait{},
-	}
-	spaceRoleResourceType = &v2.ResourceType{
-		Id:          "space_role",
-		DisplayName: "Space Role",
-		Traits:      []v2.ResourceType_Trait{v2.ResourceType_TRAIT_ROLE},
-	}
-	spaceRoleAssignmentResourceType = &v2.ResourceType{
-		Id:          "space_role_assignment",
-		DisplayName: "Space Role Assignment",
-		Traits:      []v2.ResourceType_Trait{v2.ResourceType_TRAIT_SCOPE_BINDING},
-		Annotations: annotationsSkipEntitlements(),
-	}
 )
 
 type Config struct {
@@ -193,15 +157,12 @@ func (c *Confluence) Asset(ctx context.Context, asset *v2.AssetRef) (string, io.
 	return "", nil, nil
 }
 
-func (c *Confluence) ResourceSyncers(ctx context.Context) []connectorbuilder.ResourceSyncer {
-	syncers := []connectorbuilder.ResourceSyncer{
+func (c *Confluence) ResourceSyncers(ctx context.Context) []connectorbuilder.ResourceSyncerV2 {
+	return []connectorbuilder.ResourceSyncerV2{
 		groupBuilder(c.client),
 		userBuilder(c.client),
 		newSpaceBuilder(c.client, c.skipPersonalSpaces, c.useRbac, c.nouns, c.verbs),
+		newSpaceRoleBuilder(c.client),
+		newSpaceRoleAssignmentBuilder(c.client),
 	}
-	if c.useRbac {
-		syncers = append(syncers, newSpaceRoleBuilder(c.client))
-		syncers = append(syncers, newSpaceRoleAssignmentBuilder(c.client))
-	}
-	return syncers
 }

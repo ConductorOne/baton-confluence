@@ -6,6 +6,7 @@ import (
 
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/pagination"
+	"github.com/conductorone/baton-sdk/pkg/types/resource"
 	"github.com/stretchr/testify/require"
 
 	"github.com/conductorone/baton-confluence/pkg/connector/client"
@@ -55,18 +56,18 @@ func TestSpaces(t *testing.T) {
 		resources := make([]*v2.Resource, 0)
 		pToken := pagination.Token{}
 		for {
-			nextResources, nextToken, listAnnotations, err := c.List(ctx, nil, &pToken)
+			nextResources, results, err := c.List(ctx, nil, resource.SyncOpAttrs{PageToken: pToken})
 			resources = append(resources, nextResources...)
 
 			require.Nil(t, err)
-			test.AssertNoRatelimitAnnotations(t, listAnnotations)
-			if nextToken == "" {
+			require.NotNil(t, results)
+			test.AssertNoRatelimitAnnotations(t, results.Annotations)
+			if results.NextPageToken == "" {
 				break
 			}
-			pToken.Token = nextToken
+			pToken.Token = results.NextPageToken
 		}
 
-		require.Nil(t, err)
 		require.Len(t, resources, 2)
 		require.NotEmpty(t, resources[0].Id)
 	})
@@ -77,11 +78,11 @@ func TestSpaces(t *testing.T) {
 		}
 		space, _ := spaceResource(ctx, &confluenceSpace, false)
 
-		grants, nextToken, grantsAnnotations, err := c.Grants(ctx, space, &pagination.Token{})
+		grants, results, err := c.Grants(ctx, space, resource.SyncOpAttrs{})
 		require.Nil(t, err)
-		test.AssertNoRatelimitAnnotations(t, grantsAnnotations)
-		require.Equal(t, "", nextToken)
+		require.NotNil(t, results)
+		test.AssertNoRatelimitAnnotations(t, results.Annotations)
+		require.Equal(t, "", results.NextPageToken)
 		require.Len(t, grants, 25)
 	})
 }
-

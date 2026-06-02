@@ -7,7 +7,6 @@ import (
 
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/annotations"
-	"github.com/conductorone/baton-sdk/pkg/pagination"
 	"github.com/conductorone/baton-sdk/pkg/types/entitlement"
 	grantSdk "github.com/conductorone/baton-sdk/pkg/types/grant"
 	rs "github.com/conductorone/baton-sdk/pkg/types/resource"
@@ -27,7 +26,7 @@ type spaceRoleListPageToken struct {
 }
 
 type spaceRoleAssignmentBuilder struct {
-	client    client.ConfluenceClient
+	client    *client.ConfluenceClient
 	roleNames map[string]string
 }
 
@@ -55,19 +54,19 @@ func (b *spaceRoleAssignmentBuilder) ResourceType(_ context.Context) *v2.Resourc
 func (b *spaceRoleAssignmentBuilder) List(
 	ctx context.Context,
 	parentResourceID *v2.ResourceId,
-	pToken *pagination.Token,
-) ([]*v2.Resource, string, annotations.Annotations, error) {
+	opts rs.SyncOpAttrs,
+) ([]*v2.Resource, *rs.SyncOpResults, error) {
 	if parentResourceID == nil || parentResourceID.ResourceType != spaceResourceType.Id {
-		return nil, "", nil, nil
+		return nil, nil, nil
 	}
 	spaceID := parentResourceID.Resource
 
 	// Decode our wrapped token to recover the API cursor and any cached space name.
 	var pageToken spaceRoleListPageToken
-	if pToken.Token != "" {
-		if err := json.Unmarshal([]byte(pToken.Token), &pageToken); err != nil {
+	if opts.PageToken.Token != "" {
+		if err := json.Unmarshal([]byte(opts.PageToken.Token), &pageToken); err != nil {
 			// Treat as a raw API cursor for backward compatibility.
-			pageToken.Cursor = pToken.Token
+			pageToken.Cursor = opts.PageToken.Token
 		}
 	}
 
@@ -76,11 +75,11 @@ func (b *spaceRoleAssignmentBuilder) List(
 	)
 	outputAnnotations := WithRateLimitAnnotations(rateLimitData)
 	if err != nil {
-		return nil, "", outputAnnotations, fmt.Errorf("confluence-connector: failed to list space role assignments: %w", err)
+		return nil, syncResults("", outputAnnotations), fmt.Errorf("confluence-connector: failed to list space role assignments: %w", err)
 	}
 
 	if err := b.loadRoleNames(ctx); err != nil {
-		return nil, "", outputAnnotations, err
+		return nil, syncResults("", outputAnnotations), err
 	}
 
 	// Use the space name cached in the token when available (pages 2+).
@@ -109,7 +108,7 @@ func (b *spaceRoleAssignmentBuilder) List(
 		}
 		r, err := spaceRoleAssignmentResource(assignment.RoleId, parentResourceID, roleName, spaceName)
 		if err != nil {
-			return nil, "", outputAnnotations, err
+			return nil, syncResults("", outputAnnotations), err
 		}
 		resources = append(resources, r)
 	}
@@ -119,57 +118,57 @@ func (b *spaceRoleAssignmentBuilder) List(
 	if nextCursor != "" {
 		data, err := json.Marshal(spaceRoleListPageToken{Cursor: nextCursor, SpaceName: spaceName})
 		if err != nil {
-			return nil, "", outputAnnotations, fmt.Errorf("confluence-connector: failed to marshal page token: %w", err)
+			return nil, syncResults("", outputAnnotations), fmt.Errorf("confluence-connector: failed to marshal page token: %w", err)
 		}
 		nextPageToken = string(data)
 	}
 
-	return resources, nextPageToken, outputAnnotations, nil
+	return resources, syncResults(nextPageToken, outputAnnotations), nil
 }
 
 func (b *spaceRoleAssignmentBuilder) StaticEntitlements(
 	_ context.Context,
-	_ *pagination.Token,
-) ([]*v2.Entitlement, string, annotations.Annotations, error) {
+	_ rs.SyncOpAttrs,
+) ([]*v2.Entitlement, *rs.SyncOpResults, error) {
 	return []*v2.Entitlement{
 		entitlement.NewAssignmentEntitlement(
 			nil,
 			spaceRoleAssignmentEntitlement,
 			entitlement.WithGrantableTo(resourceTypeUser, resourceTypeGroup),
 		),
-	}, "", nil, nil
+	}, syncResults("", nil), nil
 }
 
 func (b *spaceRoleAssignmentBuilder) Entitlements(
 	_ context.Context,
 	_ *v2.Resource,
-	_ *pagination.Token,
-) ([]*v2.Entitlement, string, annotations.Annotations, error) {
-	return nil, "", nil, nil
+	_ rs.SyncOpAttrs,
+) ([]*v2.Entitlement, *rs.SyncOpResults, error) {
+	return nil, nil, nil
 }
 
 func (b *spaceRoleAssignmentBuilder) Grants(
 	ctx context.Context,
 	res *v2.Resource,
-	pToken *pagination.Token,
-) ([]*v2.Grant, string, annotations.Annotations, error) {
+	opts rs.SyncOpAttrs,
+) ([]*v2.Grant, *rs.SyncOpResults, error) {
 	scopeTrait, err := rs.GetScopeBindingTrait(res)
 	if err != nil {
-		return nil, "", nil, fmt.Errorf("confluence-connector: failed to get scope binding trait: %w", err)
+		return nil, nil, fmt.Errorf("confluence-connector: failed to get scope binding trait: %w", err)
 	}
 	if scopeTrait == nil {
-		return nil, "", nil, fmt.Errorf("confluence-connector: scope binding trait was not found on resource")
+		return nil, nil, fmt.Errorf("confluence-connector: scope binding trait was not found on resource")
 	}
 
 	spaceID := scopeTrait.GetScopeResourceId().GetResource()
 	roleID := scopeTrait.GetRoleId().GetResource()
 
 	assignments, nextCursor, rateLimitData, err := b.client.GetSpaceRoleAssignments(
-		ctx, spaceID, roleID, "", "", pToken.Token, pToken.Size,
+		ctx, spaceID, roleID, "", "", opts.PageToken.Token, opts.PageToken.Size,
 	)
 	outputAnnotations := WithRateLimitAnnotations(rateLimitData)
 	if err != nil {
-		return nil, "", outputAnnotations, fmt.Errorf("confluence-connector: failed to list space role assignments: %w", err)
+		return nil, syncResults("", outputAnnotations), fmt.Errorf("confluence-connector: failed to list space role assignments: %w", err)
 	}
 
 	var grants []*v2.Grant
@@ -201,7 +200,7 @@ func (b *spaceRoleAssignmentBuilder) Grants(
 			grantOpts...,
 		))
 	}
-	return grants, nextCursor, outputAnnotations, nil
+	return grants, syncResults(nextCursor, outputAnnotations), nil
 }
 
 func (b *spaceRoleAssignmentBuilder) Grant(
@@ -327,5 +326,5 @@ func spaceRoleAssignmentResource(roleId string, spaceResourceID *v2.ResourceId, 
 }
 
 func newSpaceRoleAssignmentBuilder(client *client.ConfluenceClient) *spaceRoleAssignmentBuilder {
-	return &spaceRoleAssignmentBuilder{client: *client}
+	return &spaceRoleAssignmentBuilder{client: client}
 }

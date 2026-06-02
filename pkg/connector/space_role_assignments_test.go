@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
-	"github.com/conductorone/baton-sdk/pkg/pagination"
 	rs "github.com/conductorone/baton-sdk/pkg/types/resource"
 	"github.com/stretchr/testify/require"
 
@@ -33,17 +32,18 @@ func TestSpaceRoleAssignments(t *testing.T) {
 	}
 
 	t.Run("should return nothing for nil parent", func(t *testing.T) {
-		resources, nextToken, _, err := b.List(ctx, nil, &pagination.Token{})
+		resources, results, err := b.List(ctx, nil, rs.SyncOpAttrs{})
 		require.Nil(t, err)
 		require.Empty(t, resources)
-		require.Equal(t, "", nextToken)
+		require.Nil(t, results)
 	})
 
 	t.Run("should list scope binding resources for a space", func(t *testing.T) {
-		resources, nextToken, annotations, err := b.List(ctx, spaceResourceID, &pagination.Token{})
+		resources, results, err := b.List(ctx, spaceResourceID, rs.SyncOpAttrs{})
 		require.Nil(t, err)
-		test.AssertNoRatelimitAnnotations(t, annotations)
-		require.Equal(t, "", nextToken)
+		require.NotNil(t, results)
+		test.AssertNoRatelimitAnnotations(t, results.Annotations)
+		require.Equal(t, "", results.NextPageToken)
 		require.Len(t, resources, 3)
 
 		// Each resource should have the ScopeBindingTrait
@@ -65,23 +65,25 @@ func TestSpaceRoleAssignments(t *testing.T) {
 	})
 
 	t.Run("should return one static assigned entitlement for the type", func(t *testing.T) {
-		entitlements, nextToken, annotations, err := b.StaticEntitlements(ctx, &pagination.Token{})
+		entitlements, results, err := b.StaticEntitlements(ctx, rs.SyncOpAttrs{})
 		require.Nil(t, err)
-		test.AssertNoRatelimitAnnotations(t, annotations)
-		require.Equal(t, "", nextToken)
+		require.NotNil(t, results)
+		test.AssertNoRatelimitAnnotations(t, results.Annotations)
+		require.Equal(t, "", results.NextPageToken)
 		require.Len(t, entitlements, 1)
 		require.Equal(t, spaceRoleAssignmentEntitlement, entitlements[0].GetSlug())
 	})
 
 	t.Run("should list grants for a scope binding resource", func(t *testing.T) {
-		resources, _, _, err := b.List(ctx, spaceResourceID, &pagination.Token{})
+		resources, _, err := b.List(ctx, spaceResourceID, rs.SyncOpAttrs{})
 		require.Nil(t, err)
 		require.NotEmpty(t, resources)
 
-		grants, nextToken, annotations, err := b.Grants(ctx, resources[0], &pagination.Token{})
+		grants, results, err := b.Grants(ctx, resources[0], rs.SyncOpAttrs{})
 		require.Nil(t, err)
-		test.AssertNoRatelimitAnnotations(t, annotations)
-		require.Equal(t, "", nextToken)
+		require.NotNil(t, results)
+		test.AssertNoRatelimitAnnotations(t, results.Annotations)
+		require.Equal(t, "", results.NextPageToken)
 		require.NotEmpty(t, grants)
 
 		// All grants should reference the "assigned" entitlement
