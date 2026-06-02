@@ -270,6 +270,9 @@ func (b *spaceRoleAssignmentBuilder) Revoke(
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "confluence-connector: failed to get scope binding trait: %v", err)
 	}
+	if scopeTrait == nil {
+		return nil, status.Error(codes.InvalidArgument, "confluence-connector: scope binding trait was not found on resource")
+	}
 	spaceID := scopeTrait.GetScopeResourceId().GetResource()
 	roleID := scopeTrait.GetRoleId().GetResource()
 
