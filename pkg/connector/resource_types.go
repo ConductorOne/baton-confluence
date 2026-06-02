@@ -2,7 +2,6 @@ package connector
 
 import (
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
-	"github.com/conductorone/baton-sdk/pkg/annotations"
 )
 
 const (
@@ -37,7 +36,7 @@ var (
 		Id:          SpaceRoleResourceTypeID,
 		DisplayName: "Space Role",
 		Traits:      []v2.ResourceType_Trait{v2.ResourceType_TRAIT_ROLE},
-		Annotations: annotations.New(&v2.OptInRequired{}),
+		Annotations: spaceRoleAnnotations(),
 	}
 	spaceRoleAssignmentResourceType = &v2.ResourceType{
 		Id:          SpaceRoleAssignmentResourceTypeID,

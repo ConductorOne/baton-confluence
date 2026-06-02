@@ -22,6 +22,13 @@ func annotationsForUserResourceType() annotations.Annotations {
 	return annos
 }
 
+func spaceRoleAnnotations() annotations.Annotations {
+	annos := annotations.Annotations{}
+	annos.Update(&v2.SkipEntitlementsAndGrants{})
+	annos.Update(&v2.OptInRequired{})
+	return annos
+}
+
 func spaceRoleAssignmentsAnnotations() annotations.Annotations {
 	annos := annotations.Annotations{}
 	annos.Update(&v2.SkipEntitlements{})
