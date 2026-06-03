@@ -40,12 +40,15 @@ baton resources
 - Groups
 - Users
 
-## Space Permissions
-Every Confluence space has its own set of permissions which determine what
-people can do in the space.
+## Space Permissions and RBAC Space Roles
 
-These permissions are Entitlements for Spaces and are represented as a pair of
-"operation" and "target".
+Confluence is transitioning to an RBAC model for space access control. The
+connector supports both modes.
+
+### Granular Space Permissions (default)
+
+By default, the connector syncs granular space permissions as Entitlements.
+Each permission is represented as a pair of "operation" and "target".
 
 Valid targets include:
 - `application`
@@ -88,6 +91,16 @@ Not all operation-target pairs are valid, but here are some examples of valid on
 
 See [Space Permissions Overview documentation page](https://confluence.atlassian.com/doc/space-permissions-overview-139521.html).
 
+### RBAC Space Roles
+
+When `--use-rbac` is set, the connector instead syncs Confluence RBAC space
+roles as Entitlements. Role assignments to users and groups are synced as
+Grants, and provisioning (grant/revoke) operates on role assignments.
+
+Use this mode when your Confluence instance has space roles enabled and you
+want to manage access through Confluence's newer RBAC model rather than
+granular permissions.
+
 # Contributing, Support and Issues
 
 We started Baton because we were tired of taking screenshots and manually
@@ -125,6 +138,7 @@ Flags:
       --skip-full-sync         This must be set to skip a full sync ($BATON_SKIP_FULL_SYNC)
       --skip-personal-spaces   Skip syncing personal spaces and their permissions ($BATON_SKIP_PERSONAL_SPACES)
       --ticketing              This must be set to enable ticketing support ($BATON_TICKETING)
+      --use-rbac               Use Confluence RBAC space roles instead of granular space permissions ($BATON_USE_RBAC)
       --username string        required: The username for your Confluence account ($BATON_USERNAME)
       --verb strings           The verbs for your Confluence Space sync ($BATON_VERB)
   -v, --version                version for baton-confluence

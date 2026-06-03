@@ -7,7 +7,6 @@ import (
 
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/annotations"
-	"github.com/conductorone/baton-sdk/pkg/pagination"
 	"github.com/conductorone/baton-sdk/pkg/types/entitlement"
 	grantSdk "github.com/conductorone/baton-sdk/pkg/types/grant"
 	"github.com/conductorone/baton-sdk/pkg/types/resource"
@@ -19,12 +18,7 @@ import (
 const separator = "-"
 
 func createEntitlementName(verb, noun string) string {
-	return fmt.Sprintf(
-		"%s%s%s",
-		verb,
-		separator,
-		noun,
-	)
+	return fmt.Sprintf("%s%s%s", verb, separator, noun)
 }
 
 // GetEntitlementComponents returns the operation and target in that order.
@@ -34,8 +28,9 @@ func GetEntitlementComponents(operation string) (string, string) {
 }
 
 type spaceBuilder struct {
-	client             client.ConfluenceClient
+	client             *client.ConfluenceClient
 	skipPersonalSpaces bool
+	useRbac            bool
 	nouns              []string
 	verbs              []string
 }
@@ -44,25 +39,20 @@ func (o *spaceBuilder) ResourceType(ctx context.Context) *v2.ResourceType {
 	return spaceResourceType
 }
 
-// List returns all the spaces from the database as resource objects.
+// List returns all the spaces as resource objects.
 func (o *spaceBuilder) List(
 	ctx context.Context,
 	parentResourceID *v2.ResourceId,
-	pToken *pagination.Token,
-) (
-	[]*v2.Resource,
-	string,
-	annotations.Annotations,
-	error,
-) {
+	opts resource.SyncOpAttrs,
+) ([]*v2.Resource, *resource.SyncOpResults, error) {
 	spaces, nextToken, ratelimitData, err := o.client.GetSpaces(
 		ctx,
 		ResourcesPageSize,
-		pToken.Token,
+		opts.PageToken.Token,
 	)
 	outputAnnotations := WithRateLimitAnnotations(ratelimitData)
 	if err != nil {
-		return nil, "", outputAnnotations, err
+		return nil, syncResults("", outputAnnotations), err
 	}
 	rv := make([]*v2.Resource, 0)
 	for _, space := range spaces {
@@ -70,27 +60,25 @@ func (o *spaceBuilder) List(
 		if o.skipPersonalSpaces && spaceCopy.Type == "personal" {
 			continue
 		}
-		ur, err := spaceResource(ctx, &spaceCopy)
+		ur, err := spaceResource(ctx, &spaceCopy, o.useRbac)
 		if err != nil {
-			return nil, "", nil, err
+			return nil, nil, err
 		}
-
 		rv = append(rv, ur)
 	}
 
-	return rv, nextToken, outputAnnotations, nil
+	return rv, syncResults(nextToken, outputAnnotations), nil
 }
 
 func (o *spaceBuilder) Entitlements(
 	ctx context.Context,
-	resource *v2.Resource,
-	pToken *pagination.Token,
-) (
-	[]*v2.Entitlement,
-	string,
-	annotations.Annotations,
-	error,
-) {
+	res *v2.Resource,
+	_ resource.SyncOpAttrs,
+) ([]*v2.Entitlement, *resource.SyncOpResults, error) {
+	if o.useRbac {
+		return nil, nil, nil
+	}
+
 	entitlements := make([]*v2.Entitlement, 0)
 
 	for _, noun := range o.nouns {
@@ -99,30 +87,26 @@ func (o *spaceBuilder) Entitlements(
 			entitlements = append(
 				entitlements,
 				entitlement.NewPermissionEntitlement(
-					resource,
+					res,
 					operationName,
 					entitlement.WithGrantableTo(resourceTypeUser),
 					entitlement.WithGrantableTo(resourceTypeGroup),
 					entitlement.WithDisplayName(
-						fmt.Sprintf(
-							"Can %s %s",
-							operationName,
-							resource.DisplayName,
-						),
+						fmt.Sprintf("Can %s %s", operationName, res.DisplayName),
 					),
 					entitlement.WithDescription(
 						fmt.Sprintf(
 							"Has permission to %s %s the %s space in Confluence",
 							verb,
 							noun,
-							resource.DisplayName,
+							res.DisplayName,
 						),
 					),
 				))
 		}
 	}
 
-	return entitlements, "", nil, nil
+	return entitlements, syncResults("", nil), nil
 }
 
 // checkSpacePermission checks if the operation is in the list of operations we care about.
@@ -130,39 +114,37 @@ func checkSpacePermission(nouns mapset.Set[string], verbs mapset.Set[string], op
 	return verbs.Contains(operation) && nouns.Contains(targetType)
 }
 
-// Grants the grants for a given space are the permissions.
 func (o *spaceBuilder) Grants(
 	ctx context.Context,
-	resource *v2.Resource,
-	pToken *pagination.Token,
-) (
-	[]*v2.Grant,
-	string,
-	annotations.Annotations,
-	error,
-) {
+	res *v2.Resource,
+	opts resource.SyncOpAttrs,
+) ([]*v2.Grant, *resource.SyncOpResults, error) {
+	if o.useRbac {
+		return nil, nil, nil
+	}
+
 	permissionsList, nextToken, ratelimitData, err := o.client.GetSpacePermissions(
 		ctx,
-		pToken.Token,
-		pToken.Size,
-		resource.Id.Resource,
+		opts.PageToken.Token,
+		opts.PageToken.Size,
+		res.Id.Resource,
 	)
 	outputAnnotations := WithRateLimitAnnotations(ratelimitData)
 	if err != nil {
-		return nil, "", outputAnnotations, err
+		return nil, syncResults("", outputAnnotations), err
 	}
 
 	nounsSet := mapset.NewSet(o.nouns...)
 	verbsSet := mapset.NewSet(o.verbs...)
 
-	var permissions []*v2.Grant
+	var grants []*v2.Grant
 	for _, permission := range permissionsList {
-		grantOpts := []grantSdk.GrantOption{}
+		var grantOpts []grantSdk.GrantOption
 		var resourceType string
 		switch permission.Principal.Type {
-		case "user":
+		case resourceTypeUserID:
 			resourceType = resourceTypeUser.Id
-		case "group":
+		case resourceTypeGroupID:
 			resourceType = resourceTypeGroup.Id
 			grantOpts = append(grantOpts, grantSdk.WithAnnotation(&v2.GrantExpandable{
 				EntitlementIds: []string{
@@ -170,36 +152,29 @@ func (o *spaceBuilder) Grants(
 				},
 			}))
 		default:
-			// Skip if the type is "role".
 			continue
 		}
-
 		if !checkSpacePermission(nounsSet, verbsSet, permission.Operation.Key, permission.Operation.TargetType) {
 			continue
 		}
-
-		grant := grantSdk.NewGrant(
-			resource,
+		grants = append(grants, grantSdk.NewGrant(
+			res,
 			createEntitlementName(permission.Operation.Key, permission.Operation.TargetType),
-			&v2.ResourceId{
-				ResourceType: resourceType,
-				Resource:     permission.Principal.Id,
-			},
+			&v2.ResourceId{ResourceType: resourceType, Resource: permission.Principal.Id},
 			grantOpts...,
-		)
-		permissions = append(permissions, grant)
+		))
 	}
 
-	return permissions, nextToken, outputAnnotations, nil
+	return grants, syncResults(nextToken, outputAnnotations), nil
 }
 
 func (o *spaceBuilder) Grant(
 	ctx context.Context,
 	principal *v2.Resource,
-	entitlement *v2.Entitlement,
-) (annotations.Annotations, error) {
-	spaceName := entitlement.Resource.Id.Resource
-	key, target := GetEntitlementComponents(entitlement.Slug)
+	ent *v2.Entitlement,
+) ([]*v2.Grant, annotations.Annotations, error) {
+	spaceName := ent.Resource.Id.Resource
+	key, target := GetEntitlementComponents(ent.Slug)
 	ratelimitData, err := o.client.AddSpacePermission(
 		ctx,
 		spaceName,
@@ -209,7 +184,11 @@ func (o *spaceBuilder) Grant(
 		principal.Id.ResourceType,
 	)
 	outputAnnotations := WithRateLimitAnnotations(ratelimitData)
-	return outputAnnotations, err
+	if err != nil {
+		return nil, outputAnnotations, err
+	}
+	g := grantSdk.NewGrant(ent.Resource, ent.Slug, principal.Id)
+	return []*v2.Grant{g}, outputAnnotations, nil
 }
 
 func (o *spaceBuilder) Revoke(
@@ -230,24 +209,22 @@ func (o *spaceBuilder) Revoke(
 	return outputAnnotations, err
 }
 
-func newSpaceBuilder(client *client.ConfluenceClient, skipPersonalSpaces bool, nouns, verbs []string) *spaceBuilder {
+func newSpaceBuilder(client *client.ConfluenceClient, skipPersonalSpaces bool, useRbac bool, nouns, verbs []string) *spaceBuilder {
 	return &spaceBuilder{
-		client:             *client,
+		client:             client,
 		skipPersonalSpaces: skipPersonalSpaces,
+		useRbac:            useRbac,
 		nouns:              nouns,
 		verbs:              verbs,
 	}
 }
 
-func spaceResource(ctx context.Context, space *client.ConfluenceSpace) (*v2.Resource, error) {
-	createdResource, err := resource.NewResource(
-		space.Name,
-		spaceResourceType,
-		space.Id,
-	)
-	if err != nil {
-		return nil, err
+func spaceResource(ctx context.Context, space *client.ConfluenceSpace, useRbac bool) (*v2.Resource, error) {
+	var opts []resource.ResourceOption
+	if useRbac {
+		opts = append(opts, resource.WithAnnotation(&v2.ChildResourceType{
+			ResourceTypeId: spaceRoleAssignmentResourceType.Id,
+		}))
 	}
-
-	return createdResource, nil
+	return resource.NewResource(space.Name, spaceResourceType, space.Id, opts...)
 }

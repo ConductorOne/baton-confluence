@@ -2,10 +2,12 @@ package connector
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/conductorone/baton-confluence/pkg/connector/client"
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/annotations"
+	"github.com/conductorone/baton-sdk/pkg/types/resource"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"go.uber.org/zap"
 )
@@ -17,6 +19,20 @@ const ResourcesPageSize = 200
 func annotationsForUserResourceType() annotations.Annotations {
 	annos := annotations.Annotations{}
 	annos.Update(&v2.SkipEntitlementsAndGrants{})
+	return annos
+}
+
+func spaceRoleAnnotations() annotations.Annotations {
+	annos := annotations.Annotations{}
+	annos.Update(&v2.SkipEntitlementsAndGrants{})
+	annos.Update(&v2.OptInRequired{})
+	return annos
+}
+
+func spaceRoleAssignmentsAnnotations() annotations.Annotations {
+	annos := annotations.Annotations{}
+	annos.Update(&v2.SkipEntitlements{})
+	annos.Update(&v2.OptInRequired{})
 	return annos
 }
 
@@ -39,4 +55,18 @@ func shouldIncludeUser(ctx context.Context, user client.ConfluenceUser) bool {
 		return false
 	}
 	return true
+}
+
+func syncResults(nextToken string, annos annotations.Annotations) *resource.SyncOpResults {
+	return &resource.SyncOpResults{NextPageToken: nextToken, Annotations: annos}
+}
+
+func confluencePrincipalType(resourceTypeId string) (string, error) {
+	switch resourceTypeId {
+	case resourceTypeUserID:
+		return "USER", nil
+	case resourceTypeGroupID:
+		return "GROUP", nil
+	}
+	return "", fmt.Errorf("unsupported principal resource type: %s", resourceTypeId)
 }

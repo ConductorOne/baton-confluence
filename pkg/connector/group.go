@@ -51,17 +51,12 @@ func groupResource(ctx context.Context, group *client.ConfluenceGroup) (*v2.Reso
 func (o *groupResourceType) List(
 	ctx context.Context,
 	resourceId *v2.ResourceId,
-	pt *pagination.Token,
-) (
-	[]*v2.Resource,
-	string,
-	annotations.Annotations,
-	error,
-) {
+	opts resource.SyncOpAttrs,
+) ([]*v2.Resource, *resource.SyncOpResults, error) {
 	bag := &pagination.Bag{}
-	err := bag.Unmarshal(pt.Token)
+	err := bag.Unmarshal(opts.PageToken.Token)
 	if err != nil {
-		return nil, "", nil, err
+		return nil, nil, err
 	}
 	if bag.Current() == nil {
 		bag.Push(pagination.PageState{
@@ -71,7 +66,7 @@ func (o *groupResourceType) List(
 	groups, token, ratelimitData, err := o.client.GetGroups(ctx, bag.PageToken(), ResourcesPageSize)
 	outputAnnotations := WithRateLimitAnnotations(ratelimitData)
 	if err != nil {
-		return nil, "", outputAnnotations, err
+		return nil, syncResults("", outputAnnotations), err
 	}
 
 	rv := make([]*v2.Resource, 0, len(groups))
@@ -80,7 +75,7 @@ func (o *groupResourceType) List(
 
 		gr, err := groupResource(ctx, &groupCopy)
 		if err != nil {
-			return nil, "", outputAnnotations, err
+			return nil, syncResults("", outputAnnotations), err
 		}
 
 		rv = append(rv, gr)
@@ -88,53 +83,43 @@ func (o *groupResourceType) List(
 
 	nextPage, err := bag.NextToken(token)
 	if err != nil {
-		return nil, "", outputAnnotations, err
+		return nil, syncResults("", outputAnnotations), err
 	}
 
-	return rv, nextPage, outputAnnotations, nil
+	return rv, syncResults(nextPage, outputAnnotations), nil
 }
 
 func (o *groupResourceType) Entitlements(
 	ctx context.Context,
-	resource *v2.Resource,
-	_ *pagination.Token,
-) (
-	[]*v2.Entitlement,
-	string,
-	annotations.Annotations,
-	error,
-) {
+	res *v2.Resource,
+	_ resource.SyncOpAttrs,
+) ([]*v2.Entitlement, *resource.SyncOpResults, error) {
 	var rv []*v2.Entitlement
 
 	assignmentOptions := []entitlement.EntitlementOption{
 		entitlement.WithGrantableTo(resourceTypeUser),
-		entitlement.WithDisplayName(fmt.Sprintf("%s Group Member", resource.DisplayName)),
-		entitlement.WithDescription(fmt.Sprintf("Is member of the %s group in Confluence", resource.DisplayName)),
+		entitlement.WithDisplayName(fmt.Sprintf("%s Group Member", res.DisplayName)),
+		entitlement.WithDescription(fmt.Sprintf("Is member of the %s group in Confluence", res.DisplayName)),
 	}
 
 	rv = append(rv, entitlement.NewAssignmentEntitlement(
-		resource,
+		res,
 		groupMemberEntitlement,
 		assignmentOptions...,
 	))
 
-	return rv, "", nil, nil
+	return rv, syncResults("", nil), nil
 }
 
 func (o *groupResourceType) Grants(
 	ctx context.Context,
-	resource *v2.Resource,
-	pt *pagination.Token,
-) (
-	[]*v2.Grant,
-	string,
-	annotations.Annotations,
-	error,
-) {
+	res *v2.Resource,
+	opts resource.SyncOpAttrs,
+) ([]*v2.Grant, *resource.SyncOpResults, error) {
 	bag := &pagination.Bag{}
-	err := bag.Unmarshal(pt.Token)
+	err := bag.Unmarshal(opts.PageToken.Token)
 	if err != nil {
-		return nil, "", nil, err
+		return nil, nil, err
 	}
 	if bag.Current() == nil {
 		bag.Push(pagination.PageState{
@@ -146,11 +131,11 @@ func (o *groupResourceType) Grants(
 		ctx,
 		bag.PageToken(),
 		ResourcesPageSize,
-		resource.Id.Resource,
+		res.Id.Resource,
 	)
 	outputAnnotations := WithRateLimitAnnotations(ratelimitData)
 	if err != nil {
-		return nil, "", outputAnnotations, err
+		return nil, syncResults("", outputAnnotations), err
 	}
 
 	var rv []*v2.Grant
@@ -160,7 +145,7 @@ func (o *groupResourceType) Grants(
 		}
 
 		rv = append(rv, grant.NewGrant(
-			resource,
+			res,
 			groupMemberEntitlement,
 			&v2.ResourceId{
 				ResourceType: resourceTypeUser.Id,
@@ -171,23 +156,27 @@ func (o *groupResourceType) Grants(
 
 	nextPage, err := bag.NextToken(token)
 	if err != nil {
-		return nil, "", outputAnnotations, err
+		return nil, syncResults("", outputAnnotations), err
 	}
-	return rv, nextPage, outputAnnotations, nil
+	return rv, syncResults(nextPage, outputAnnotations), nil
 }
 
 func (o *groupResourceType) Grant(
 	ctx context.Context,
 	principal *v2.Resource,
 	entitlement *v2.Entitlement,
-) (annotations.Annotations, error) {
+) ([]*v2.Grant, annotations.Annotations, error) {
 	ratelimitData, err := o.client.AddUserToGroup(
 		ctx,
 		principal.Id.Resource,
 		entitlement.Resource.Id.Resource,
 	)
 	outputAnnotations := WithRateLimitAnnotations(ratelimitData)
-	return outputAnnotations, err
+	if err != nil {
+		return nil, outputAnnotations, err
+	}
+	g := grant.NewGrant(entitlement.Resource, groupMemberEntitlement, principal.Id)
+	return []*v2.Grant{g}, outputAnnotations, nil
 }
 
 func (o *groupResourceType) Revoke(

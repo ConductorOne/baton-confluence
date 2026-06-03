@@ -63,10 +63,16 @@ func FixturesServer() *httptest.Server {
 					filename = "../../test/fixtures/groups1.json"
 				case strings.Contains(routeUrl, client.GroupsListUrlPath):
 					filename = "../../test/fixtures/groups0.json"
+				case strings.Contains(routeUrl, "role-assignments"):
+					filename = "../../test/fixtures/role_assignments0.json"
+				case strings.Contains(routeUrl, client.SpaceRolesUrlPath):
+					filename = "../../test/fixtures/space_roles.json"
 				case strings.Contains(routeUrl, client.SpacesListUrlPath) && strings.Contains(routeUrl, "permissions"):
 					filename = "../../test/fixtures/permissions0.json"
 				case strings.Contains(routeUrl, client.SpacesListUrlPath) && strings.Contains(routeUrl, "cursor"):
 					filename = "../../test/fixtures/spaces1.json"
+				case strings.Contains(routeUrl, "/wiki/api/v2/spaces/"):
+					filename = "../../test/fixtures/space_678.json"
 				case strings.Contains(routeUrl, client.SpacesListUrlPath) && !strings.Contains(routeUrl, "cursor"):
 					filename = "../../test/fixtures/spaces0.json"
 				case strings.Contains(routeUrl, client.SearchUrlPath) && strings.Contains(routeUrl, "start=0"):

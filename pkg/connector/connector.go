@@ -19,27 +19,6 @@ const (
 	accountTypeApp       = "app"       // bot account type
 )
 
-var (
-	resourceTypeGroup = &v2.ResourceType{
-		Id:          "group",
-		DisplayName: "Group",
-		Traits:      []v2.ResourceType_Trait{v2.ResourceType_TRAIT_GROUP},
-	}
-	resourceTypeUser = &v2.ResourceType{
-		Id:          "user",
-		DisplayName: "User",
-		Traits: []v2.ResourceType_Trait{
-			v2.ResourceType_TRAIT_USER,
-		},
-		Annotations: annotationsForUserResourceType(),
-	}
-	spaceResourceType = &v2.ResourceType{
-		Id:          "space",
-		DisplayName: "Space",
-		Traits:      []v2.ResourceType_Trait{},
-	}
-)
-
 type Config struct {
 	UserName string
 	ApiKey   string
@@ -52,6 +31,7 @@ type Confluence struct {
 	apiKey             string
 	userName           string
 	skipPersonalSpaces bool
+	useRbac            bool
 	nouns              []string
 	verbs              []string
 }
@@ -61,7 +41,7 @@ var defaultNouns = []string{
 	"blogpost",
 	"comment",
 	"page",
-	"space",
+	resourceTypeSpaceID,
 }
 
 var defaultVerbs = []string{
@@ -114,6 +94,7 @@ func New(
 	domainUrl string,
 	username string,
 	skipPersonalSpaces bool,
+	useRbac bool,
 	nouns []string,
 	verbs []string,
 ) (*Confluence, error) {
@@ -138,6 +119,7 @@ func New(
 		userName:           username,
 		client:             client,
 		skipPersonalSpaces: skipPersonalSpaces,
+		useRbac:            useRbac,
 		nouns:              filteredNouns,
 		verbs:              filteredVerbs,
 	}
@@ -158,7 +140,12 @@ func (c *Confluence) Metadata(ctx context.Context) (*v2.ConnectorMetadata, error
 }
 
 func (c *Confluence) Validate(ctx context.Context) (annotations.Annotations, error) {
-	err := c.client.Verify(ctx)
+	var err error
+	if c.useRbac {
+		err = c.client.VerifyRbac(ctx)
+	} else {
+		err = c.client.Verify(ctx)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("confluence-connector: failed to validate API keys: %w", err)
 	}
@@ -170,10 +157,12 @@ func (c *Confluence) Asset(ctx context.Context, asset *v2.AssetRef) (string, io.
 	return "", nil, nil
 }
 
-func (c *Confluence) ResourceSyncers(ctx context.Context) []connectorbuilder.ResourceSyncer {
-	return []connectorbuilder.ResourceSyncer{
+func (c *Confluence) ResourceSyncers(ctx context.Context) []connectorbuilder.ResourceSyncerV2 {
+	return []connectorbuilder.ResourceSyncerV2{
 		groupBuilder(c.client),
 		userBuilder(c.client),
-		newSpaceBuilder(c.client, c.skipPersonalSpaces, c.nouns, c.verbs),
+		newSpaceBuilder(c.client, c.skipPersonalSpaces, c.useRbac, c.nouns, c.verbs),
+		newSpaceRoleBuilder(c.client),
+		newSpaceRoleAssignmentBuilder(c.client),
 	}
 }

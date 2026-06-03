@@ -26,8 +26,7 @@ type userResourceType struct {
 	client       *client.ConfluenceClient
 }
 
-// limitPageSizeForGroups - Enforcing an arbitrarily small page size limit for
-// groups so that we can handle the 2D pagination scheme with a comfortable margin.
+// limitPageSizeForGroups enforces the membersByGroupId endpoint max of 200.
 func limitPageSizeForGroups(pageSize int) int {
 	if pageSize <= 0 || pageSize > GroupPageSizeMaximum {
 		return GroupPageSizeMaximum
@@ -71,10 +70,9 @@ func userResource(ctx context.Context, user *client.ConfluenceUser) (*v2.Resourc
 	return newUserResource, nil
 }
 
-// parsePageToken given a marshalled pageToken as a string, return the pageToken
-// bag and the current page number.
+// parsePageToken returns the pagination bag and the current page number.
 func parsePageToken(
-	pToken *pagination.Token,
+	pToken pagination.Token,
 	resourceID *v2.ResourceId,
 ) (
 	*pagination.Bag,
@@ -111,15 +109,10 @@ func parsePageToken(
 func (o *userResourceType) List(
 	ctx context.Context,
 	_ *v2.ResourceId,
-	pToken *pagination.Token,
-) (
-	[]*v2.Resource,
-	string,
-	annotations.Annotations,
-	error,
-) {
+	opts resource.SyncOpAttrs,
+) ([]*v2.Resource, *resource.SyncOpResults, error) {
 	logger := ctxzap.Extract(ctx)
-	logger.Debug("Starting Users List", zap.String("token", pToken.Token))
+	logger.Debug("Starting Users List", zap.String("token", opts.PageToken.Token))
 
 	// Unfortunately, there is no Confluence Cloud REST API to get all users. We
 	// try to get all the users in a roundabout away by using three other APIs.
@@ -127,19 +120,20 @@ func (o *userResourceType) List(
 	// members. Finally, we use User Search to try and find any users that were
 	// not a part of any groups.
 
-	bag, page, size, err := parsePageToken(pToken, &v2.ResourceId{})
+	bag, page, size, err := parsePageToken(opts.PageToken, &v2.ResourceId{})
 	if err != nil {
-		return nil, "", nil, err
+		return nil, nil, err
 	}
 
 	outputResources := make([]*v2.Resource, 0)
 	var outputAnnotations annotations.Annotations
+
 	switch bag.ResourceTypeID() {
 	case "":
 		users, nextToken, ratelimitData, err := o.client.GetUsersFromSearch(ctx, page, size)
-		outputAnnotations := WithRateLimitAnnotations(ratelimitData)
+		outputAnnotations = WithRateLimitAnnotations(ratelimitData)
 		if err != nil {
-			return nil, "", outputAnnotations, err
+			return nil, syncResults("", outputAnnotations), err
 		}
 		for _, user := range users {
 			if !shouldIncludeUser(ctx, user) {
@@ -149,7 +143,7 @@ func (o *userResourceType) List(
 			userCopy := user
 			newUserResource, err := userResource(ctx, &userCopy)
 			if err != nil {
-				return nil, "", nil, err
+				return nil, nil, err
 			}
 
 			outputResources = append(outputResources, newUserResource)
@@ -157,7 +151,7 @@ func (o *userResourceType) List(
 
 		err = bag.Next(nextToken)
 		if err != nil {
-			return nil, "", nil, err
+			return nil, nil, err
 		}
 
 		if bag.Current() == nil {
@@ -191,13 +185,13 @@ func (o *userResourceType) List(
 		)
 		outputAnnotations = WithRateLimitAnnotations(ratelimitData)
 		if err != nil {
-			return nil, "", outputAnnotations, err
+			return nil, syncResults("", outputAnnotations), err
 		}
 
 		// Push next page to stack. (Short-circuits if token is "".)
 		err = bag.Next(nextToken)
 		if err != nil {
-			return nil, "", outputAnnotations, err
+			return nil, syncResults("", outputAnnotations), err
 		}
 
 		for _, group := range groups {
@@ -213,6 +207,7 @@ func (o *userResourceType) List(
 				},
 			)
 		}
+
 	case resourceTypeGroup.Id:
 		currentState := bag.Current()
 
@@ -235,13 +230,13 @@ func (o *userResourceType) List(
 		)
 		outputAnnotations = WithRateLimitAnnotations(ratelimitData)
 		if err != nil {
-			return nil, "", outputAnnotations, err
+			return nil, syncResults("", outputAnnotations), err
 		}
 
 		// Push next page to stack. (Short-circuits if token is "".)
 		err = bag.Next(nextToken)
 		if err != nil {
-			return nil, "", outputAnnotations, err
+			return nil, syncResults("", outputAnnotations), err
 		}
 
 		// Add users to output resources. There will be duplicates across groups.
@@ -253,47 +248,38 @@ func (o *userResourceType) List(
 			userCopy := user
 			newUserResource, err := userResource(ctx, &userCopy)
 			if err != nil {
-				return nil, "", nil, err
+				return nil, nil, err
 			}
 
 			outputResources = append(outputResources, newUserResource)
 		}
+
 	default:
-		return nil, "", nil, fmt.Errorf("unexpected resource type while fetching list of users")
+		return nil, nil, fmt.Errorf("unexpected resource type while fetching list of users")
 	}
 
 	pageToken, err := bag.Marshal()
 	if err != nil {
-		return nil, "", nil, err
+		return nil, nil, err
 	}
 
-	return outputResources, pageToken, outputAnnotations, nil
+	return outputResources, syncResults(pageToken, outputAnnotations), nil
 }
 
 func (o *userResourceType) Entitlements(
 	_ context.Context,
 	_ *v2.Resource,
-	_ *pagination.Token,
-) (
-	[]*v2.Entitlement,
-	string,
-	annotations.Annotations,
-	error,
-) {
-	return nil, "", nil, nil
+	_ resource.SyncOpAttrs,
+) ([]*v2.Entitlement, *resource.SyncOpResults, error) {
+	return nil, nil, nil
 }
 
 func (o *userResourceType) Grants(
 	_ context.Context,
 	_ *v2.Resource,
-	_ *pagination.Token,
-) (
-	[]*v2.Grant,
-	string,
-	annotations.Annotations,
-	error,
-) {
-	return nil, "", nil, nil
+	_ resource.SyncOpAttrs,
+) ([]*v2.Grant, *resource.SyncOpResults, error) {
+	return nil, nil, nil
 }
 
 func userBuilder(client *client.ConfluenceClient) *userResourceType {
