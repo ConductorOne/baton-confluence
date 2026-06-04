@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
@@ -13,6 +14,8 @@ import (
 	"github.com/conductorone/baton-sdk/pkg/uhttp"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -107,13 +110,18 @@ func (c *ConfluenceClient) VerifyRbac(ctx context.Context) error {
 	var response *SpaceRoleModeResponse
 	_, err = c.get(ctx, spaceRoleModeUrl, &response)
 	if err != nil {
+		var reqErr *RequestError
+		if errors.As(err, &reqErr) && reqErr.Status == http.StatusNotFound {
+			return status.Error(codes.FailedPrecondition, "confluence-connector: RBAC is not supported on this Confluence instance (space-role-mode endpoint returned 404)")
+		}
 		return err
 	}
 
-	// Valid values: ROLES_TRANSITION, ROLES. If the mode is PRE_ROLE, then RBAC is not enabled for this Confluence instance.
+	// Valid values: ROLES_TRANSITION, ROLES.
+	// PRE_ROLE means the instance has the endpoint but RBAC has not been activated.
 	// https://developer.atlassian.com/cloud/confluence/rest/v2/api-group-space-roles/#api-space-role-mode-get
-	if response.Mode == "PRE_ROLE" {
-		return fmt.Errorf("confluence-connector: space role mode is %q — RBAC is not enabled for this Confluence instance", response.Mode)
+	if response.Mode == "PRE_ROLES" {
+		return status.Error(codes.FailedPrecondition, fmt.Sprintf("confluence-connector: space role mode is %q — RBAC is not enabled for this Confluence instance", response.Mode))
 	}
 
 	return nil
