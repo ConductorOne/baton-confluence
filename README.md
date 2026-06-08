@@ -2,7 +2,7 @@
 
 # `baton-confluence` [![Go Reference](https://pkg.go.dev/badge/github.com/conductorone/baton-confluence.svg)](https://pkg.go.dev/github.com/conductorone/baton-confluence) ![verify](https://github.com/conductorone/baton-confluence/actions/workflows/verify.yaml/badge.svg)
 
-`baton-confluence` is a connector for Confluence built using the [Baton SDK](https://github.com/conductorone/baton-sdk). It communicates with the confluence API to sync data about groups, and users.
+`baton-confluence` is a connector for Confluence built using the [Baton SDK](https://github.com/conductorone/baton-sdk). It communicates with the Confluence API to sync data about users, groups, spaces, and space role assignments (RBAC or granular permissions).
 
 Check out [Baton](https://github.com/conductorone/baton) to learn more the project in general.
 
@@ -39,6 +39,8 @@ baton resources
 - Spaces & Space Permissions
 - Groups
 - Users
+- Space Roles (opt-in, requires `--use-rbac`)
+- Space Role Assignments (opt-in, requires `--use-rbac`)
 
 ## Space Permissions and RBAC Space Roles
 
