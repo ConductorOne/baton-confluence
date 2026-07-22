@@ -50,11 +50,6 @@ var (
 		"noun",
 		field.WithDescription("The nouns for your Confluence Space sync"),
 		field.WithDisplayName("Nouns"),
-		// Suggested (GUI pre-fill) only, NOT a runtime flag default. Existing
-		// connectors that leave this unset must keep their prior behavior:
-		// connector.New treats an empty value as "use the full default set".
-		// A runtime WithDefaultValue would inject these and silently narrow
-		// the sync for those existing connectors.
 		field.WithSuggestedValue(defaultNouns),
 		field.WithRequired(false),
 	)
@@ -62,7 +57,6 @@ var (
 		"verb",
 		field.WithDescription("The verbs for your Confluence Space sync"),
 		field.WithDisplayName("Verbs"),
-		// Suggested (GUI pre-fill) only; see nounsField above.
 		field.WithSuggestedValue(defaultVerbs),
 		field.WithRequired(false),
 	)
