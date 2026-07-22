@@ -74,13 +74,12 @@ func spaceRoleResource(role client.SpaceRole) (*v2.Resource, error) {
 		role.Name,
 		spaceRoleResourceType,
 		role.Id,
-		[]rs.RoleTraitOption{
-			rs.WithRoleProfile(map[string]interface{}{
-				"description":       role.Description,
-				"space_permissions": perms,
-			}),
-		},
+		nil,
 		rs.WithDescription(role.Description),
+		rs.WithResourceProfile(map[string]interface{}{
+			"description":       role.Description,
+			"space_permissions": perms,
+		}),
 	)
 }
 
