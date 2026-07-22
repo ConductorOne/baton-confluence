@@ -50,14 +50,14 @@ var (
 		"noun",
 		field.WithDescription("The nouns for your Confluence Space sync"),
 		field.WithDisplayName("Nouns"),
-		field.WithDefaultValue(defaultNouns),
+		field.WithSuggestedValue(defaultNouns),
 		field.WithRequired(false),
 	)
 	verbsField = field.StringSliceField(
 		"verb",
 		field.WithDescription("The verbs for your Confluence Space sync"),
 		field.WithDisplayName("Verbs"),
-		field.WithDefaultValue(defaultVerbs),
+		field.WithSuggestedValue(defaultVerbs),
 		field.WithRequired(false),
 	)
 	useRbacField = field.BoolField(
