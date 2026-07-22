@@ -124,6 +124,20 @@ func (c *ConfluenceClient) VerifyRbac(ctx context.Context) error {
 		return status.Error(codes.FailedPrecondition, fmt.Sprintf("confluence-connector: space role mode is %q — RBAC is not enabled for this Confluence instance", response.Mode))
 	}
 
+	// space-role-mode can keep reporting ROLES even after the instance has
+	// lost access to the RBAC data endpoints (e.g. a free/trial instance
+	// whose beta access expired). Probe the actual space-roles endpoint so
+	// Validate fails clearly here instead of mid-sync with a raw 404.
+	if _, _, _, err := c.GetSpaceRoles(ctx, "", "", 1); err != nil {
+		var reqErr *RequestError
+		if errors.As(err, &reqErr) && reqErr.Status == http.StatusNotFound {
+			return status.Error(codes.FailedPrecondition,
+				"confluence-connector: RBAC data endpoints are unavailable (space-roles returned 404) — "+
+					"this can happen when a trial or beta grant for RBAC has expired")
+		}
+		return err
+	}
+
 	return nil
 }
 

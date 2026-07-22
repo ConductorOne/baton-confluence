@@ -33,13 +33,12 @@ func groupResource(ctx context.Context, group *client.ConfluenceGroup) (*v2.Reso
 		"group_type": group.Type,
 	}
 
-	groupTraitOptions := []resource.GroupTraitOption{resource.WithGroupProfile(profile)}
-
 	newGroupResource, err := resource.NewGroupResource(
 		group.Name,
 		resourceTypeGroup,
 		group.Id,
-		groupTraitOptions,
+		nil,
+		resource.WithResourceProfile(profile),
 	)
 	if err != nil {
 		return nil, err

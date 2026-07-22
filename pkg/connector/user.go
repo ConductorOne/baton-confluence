@@ -46,15 +46,13 @@ func userResource(ctx context.Context, user *client.ConfluenceUser) (*v2.Resourc
 		"id":           user.AccountId,
 	}
 
-	status := v2.UserTrait_Status_STATUS_ENABLED
+	status := v2.Status_RESOURCE_STATUS_ENABLED
 	if len(user.Operations) == 0 {
-		status = v2.UserTrait_Status_STATUS_DISABLED
+		status = v2.Status_RESOURCE_STATUS_DISABLED
 	}
 
 	userTraitOptions := []resource.UserTraitOption{
-		resource.WithUserProfile(profile),
 		resource.WithEmail(user.Email, true),
-		resource.WithStatus(status),
 	}
 
 	newUserResource, err := resource.NewUserResource(
@@ -62,6 +60,8 @@ func userResource(ctx context.Context, user *client.ConfluenceUser) (*v2.Resourc
 		resourceTypeUser,
 		user.AccountId,
 		userTraitOptions,
+		resource.WithResourceProfile(profile),
+		resource.WithResourceStatus(status, ""),
 	)
 	if err != nil {
 		return nil, err
