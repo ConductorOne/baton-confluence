@@ -3,7 +3,7 @@ module github.com/conductorone/baton-confluence
 go 1.25.2
 
 require (
-	github.com/conductorone/baton-sdk v0.20.2-0.20260723131150-d8580bf69231
+	github.com/conductorone/baton-sdk v0.20.3
 	github.com/deckarep/golang-set/v2 v2.9.0
 	github.com/ennyjfrick/ruleguard-logfatal v0.0.2
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
