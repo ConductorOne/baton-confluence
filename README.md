@@ -42,9 +42,9 @@ baton resources
 - Space Roles (opt-in, requires `--use-rbac`)
 - Space Role Assignments (opt-in, requires `--use-rbac`)
 
-A user is synced as disabled when they have no permitted operations on the Confluence site. This status doesn't reflect the user's Atlassian account; use the [Atlassian connector](https://github.com/conductorone/baton-atlassian) for Atlassian account status.
+A user is synced as disabled when they have no permitted operations on the Confluence site. This status doesn't reflect the user's Atlassian account.
 
-Account deprovisioning and account lifecycle actions (suspending and restoring accounts) are not supported. They apply to the Atlassian account across every Atlassian product, so use the [Atlassian connector](https://github.com/conductorone/baton-atlassian) for them.
+- **Deprovisioning**: Not supported. Suspending, restoring, or deleting a user applies across every Atlassian product, so use the [Atlassian connector](https://github.com/conductorone/baton-atlassian) for account deprovisioning, suspend/restore, and Atlassian account status
 
 ## Space Permissions and RBAC Space Roles
 
