@@ -5,6 +5,22 @@ type ConfluenceLink struct {
 	Next string `json:"next,omitempty"`
 }
 
+// paginationLinks is the _links block Confluence returns on every collection response.
+// It is a pointer so a response that arrived without the block is distinguishable from
+// the last page, where Confluence keeps _links and simply omits next. The recorded
+// fixtures in test/fixtures show it present on every list endpoint, down to an empty
+// object for space-roles and role-assignments.
+type paginationLinks struct {
+	Links *ConfluenceLink `json:"_links"`
+}
+
+// HasPaginationData satisfies uhttp.PaginatedResponse, so a page that came back without
+// _links fails the request instead of yielding an empty cursor and silently ending the
+// sync.
+func (p *paginationLinks) HasPaginationData() bool {
+	return p.Links != nil
+}
+
 type ConfluenceUser struct {
 	AccountId   string                `json:"accountId"`
 	AccountType string                `json:"accountType"`
@@ -19,10 +35,10 @@ type ConfluenceOperation struct {
 }
 
 type confluenceUserList struct {
-	Start   int              `json:"start"`
-	Limit   int              `json:"limit"`
-	Size    int              `json:"size"`
-	Links   ConfluenceLink   `json:"_links"`
+	Start int `json:"start"`
+	Limit int `json:"limit"`
+	Size  int `json:"size"`
+	paginationLinks
 	Results []ConfluenceUser `json:"results"`
 }
 
@@ -48,10 +64,10 @@ type ConfluenceGroup struct {
 }
 
 type confluenceGroupList struct {
-	Start   int               `json:"start"`
-	Limit   int               `json:"limit"`
-	Size    int               `json:"size"`
-	Links   ConfluenceLink    `json:"_links"`
+	Start int `json:"start"`
+	Limit int `json:"limit"`
+	Size  int `json:"size"`
+	paginationLinks
 	Results []ConfluenceGroup `json:"results"`
 }
 
@@ -76,7 +92,7 @@ type ConfluenceSpaceOperationsResponse struct {
 }
 
 type ConfluenceSpacePermissionResponse struct {
-	Links   ConfluenceLink              `json:"_links"`
+	paginationLinks
 	Results []ConfluenceSpacePermission `json:"results"`
 }
 
@@ -116,7 +132,7 @@ type ConfluenceSpace struct {
 }
 
 type confluenceSpaceList struct {
-	Links   ConfluenceLink    `json:"_links"`
+	paginationLinks
 	Results []ConfluenceSpace `json:"results"`
 }
 
@@ -158,13 +174,13 @@ type SpaceRoleAssignment struct {
 }
 
 type SpaceRolesResponse struct {
-	Results []SpaceRole    `json:"results"`
-	Links   ConfluenceLink `json:"_links"`
+	Results []SpaceRole `json:"results"`
+	paginationLinks
 }
 
 type SpaceRoleAssignmentsResponse struct {
 	Results []SpaceRoleAssignment `json:"results"`
-	Links   ConfluenceLink        `json:"_links"`
+	paginationLinks
 }
 
 type SpaceRoleModeResponse struct {
