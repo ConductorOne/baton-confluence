@@ -61,6 +61,11 @@ func (c *ConfluenceClient) makeRequest(
 	if target != nil {
 		doOpts = append(doOpts, uhttp.WithJSONResponse(target))
 	}
+	// A response type that reports its own pagination data is additionally checked for it,
+	// so a page arriving without _links fails here instead of ending the sync.
+	if paginated, ok := target.(uhttp.PaginatedResponse); ok {
+		doOpts = append(doOpts, uhttp.WithPaginationData(paginated))
+	}
 
 	response, err := c.wrapper.Do(
 		req,
@@ -78,6 +83,13 @@ func (c *ConfluenceClient) makeRequest(
 	// "ratelimit-like" status code, then return a recoverable gRPC code.
 	if isRatelimited(ratelimitData.Status, response.StatusCode) {
 		return &ratelimitData, status.Error(codes.Unavailable, response.Status)
+	}
+
+	// A success status that still carries an error means a DoOption failed - a decode, or
+	// the pagination check below - not the request. Falling through would report a
+	// RequestError with status 200 and drop the cause from the error chain.
+	if response.StatusCode >= http.StatusOK && response.StatusCode < http.StatusMultipleChoices {
+		return &ratelimitData, err
 	}
 
 	// If it's some other error, it is unrecoverable.

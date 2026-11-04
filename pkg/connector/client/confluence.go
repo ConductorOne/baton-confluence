@@ -141,8 +141,8 @@ func (c *ConfluenceClient) VerifyRbac(ctx context.Context) error {
 	return nil
 }
 
-func isThereAnotherPage(links ConfluenceLink) bool {
-	return links.Next != ""
+func isThereAnotherPage(links *ConfluenceLink) bool {
+	return links != nil && links.Next != ""
 }
 
 func (c *ConfluenceClient) GetGroups(
@@ -163,7 +163,7 @@ func (c *ConfluenceClient) GetGroups(
 		return nil, "", nil, err
 	}
 
-	var response *confluenceGroupList
+	var response confluenceGroupList
 	ratelimitData, err := c.get(ctx, groupsUrl, &response)
 	if err != nil {
 		return nil, "", ratelimitData, err
@@ -202,7 +202,7 @@ func (c *ConfluenceClient) GetGroupMembers(
 		return nil, "", nil, err
 	}
 
-	var response *confluenceUserList
+	var response confluenceUserList
 	ratelimitData, err := c.get(ctx, getUsersUrl, &response)
 	if err != nil {
 		return nil, "", ratelimitData, err
@@ -310,7 +310,7 @@ func (c *ConfluenceClient) GetSpaces(
 		return nil, "", nil, err
 	}
 
-	var response *confluenceSpaceList
+	var response confluenceSpaceList
 	ratelimitData, err := c.get(ctx, spacesListUrl, &response)
 	if err != nil {
 		return nil, "", ratelimitData, err
@@ -382,7 +382,7 @@ func (c *ConfluenceClient) GetSpacePermissions(
 		return nil, "", nil, err
 	}
 
-	var response *ConfluenceSpacePermissionResponse
+	var response ConfluenceSpacePermissionResponse
 	ratelimitData, err := c.get(
 		ctx,
 		spacePermissionsListUrl,
@@ -495,7 +495,7 @@ func (c *ConfluenceClient) findSpacePermission(
 			return nil, nil, err
 		}
 
-		var response *ConfluenceSpacePermissionResponse
+		var response ConfluenceSpacePermissionResponse
 		ratelimitData, err := c.get(
 			ctx,
 			listPermissionsUrl,
@@ -608,7 +608,10 @@ func (c *ConfluenceClient) RemoveSpacePermission(
 
 // extractPaginationCursor returns the query parameters from the "next" link in
 // the list response.
-func extractPaginationCursor(links ConfluenceLink) string {
+func extractPaginationCursor(links *ConfluenceLink) string {
+	if links == nil {
+		return ""
+	}
 	parsedUrl, err := url.Parse(links.Next)
 	if err != nil {
 		return ""
@@ -655,7 +658,7 @@ func (c *ConfluenceClient) GetSpaceRoles(
 		return nil, "", nil, err
 	}
 
-	var response *SpaceRolesResponse
+	var response SpaceRolesResponse
 	ratelimitData, err := c.get(ctx, spaceRolesUrl, &response)
 	if err != nil {
 		return nil, "", ratelimitData, err
@@ -700,7 +703,7 @@ func (c *ConfluenceClient) GetSpaceRoleAssignments(
 		return nil, "", nil, err
 	}
 
-	var response *SpaceRoleAssignmentsResponse
+	var response SpaceRoleAssignmentsResponse
 	ratelimitData, err := c.get(ctx, assignmentsUrl, &response)
 	if err != nil {
 		return nil, "", ratelimitData, err
